@@ -1,0 +1,62 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/openmemory-js/**'
+      - '!packages/openmemory-js/README.md'
+      - '!packages/openmemory-js/NOTICE'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: |
+          cd packages/openmemory-js
+          npm ci
+
+      - name: Build package
+        run: |
+          cd packages/openmemory-js
+          npm run build
+
+      - name: Check if version exists on npm
+        id: check_version
+        run: |
+          cd packages/openmemory-js
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          
+          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version 2>/dev/null; then
+            echo "version_exists=true" >> $GITHUB_OUTPUT
+            echo "Version $PACKAGE_VERSION already exists on npm"
+          else
+            echo "version_exists=false" >> $GITHUB_OUTPUT
+            echo "Version $PACKAGE_VERSION does not exist, will publish"
+          fi
+
+      - name: Publish to npm
+        if: steps.check_version.outputs.version_exists == 'false'
+        run: |
+          cd packages/openmemory-js
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Skip publishing
+        if: steps.check_version.outputs.version_exists == 'true'
+        run: |
+          echo "⚠️ Skipping publish - version already exists on npm"
+          echo "Please bump the version in package.json before merging to main"

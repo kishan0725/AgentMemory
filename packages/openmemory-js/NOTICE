@@ -1,0 +1,27 @@
+@presidio-dev/agent-memory
+Copyright 2026 Presidio
+
+This product is a derivative work based on OpenMemory, originally
+developed by nullure and contributors.
+
+Original work: https://github.com/CaviraOSS/OpenMemory
+Copyright 2025 nullure
+Licensed under Apache License 2.0
+
+================================================================================
+
+This package is based on OpenMemory version 1.3.2 with additional features
+and modifications by Presidio.
+
+Modifications include:
+- Additional features and enhancements specific to Presidio's use cases
+- Custom configurations and optimizations
+- Ongoing improvements and bug fixes
+
+For the complete list of changes, see the git commit history at:
+https://github.com/kishan0725/OpenMemory
+
+================================================================================
+
+Apache License 2.0
+See LICENSE file for full license text.

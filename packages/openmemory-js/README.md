@@ -1,12 +1,23 @@
-# openmemory javascript sdk
+# @presidio-dev/agent-memory
 
 > **real long-term memory for ai agents. not rag. not a vector db. self-hosted.**
 
-[![npm version](https://img.shields.io/npm/v/openmemory-js.svg)](https://www.npmjs.com/package/openmemory-js)
-[![license](https://img.shields.io/github/license/CaviraOSS/OpenMemory)](https://github.com/CaviraOSS/OpenMemory/blob/main/LICENSE)
-[![discord](https://img.shields.io/discord/1300368230320697404?label=Discord)](https://discord.gg/P7HaRayqTh)
+[![npm version](https://img.shields.io/npm/v/@presidio-dev/agent-memory.svg)](https://www.npmjs.com/package/@presidio-dev/agent-memory)
+[![license](https://img.shields.io/github/license/kishan0725/OpenMemory)](https://github.com/kishan0725/OpenMemory/blob/main/LICENSE)
 
-openmemory is a **cognitive memory engine** for llms and agents.
+## ⚠️ About This Package
+
+**This is a Presidio fork of [OpenMemory](https://github.com/CaviraOSS/OpenMemory)** (originally by nullure), based on version 1.3.2. We maintain this fork to add custom features and enhancements specific to our use cases while staying up-to-date with upstream improvements.
+
+**Original Project:** [OpenMemory by nullure](https://github.com/CaviraOSS/OpenMemory)  
+**License:** Apache 2.0  
+**This Fork:** [https://github.com/kishan0725/OpenMemory](https://github.com/kishan0725/OpenMemory)
+
+This package provides the same powerful cognitive memory engine as OpenMemory, with additional features and improvements by Presidio.
+
+---
+
+@presidio-dev/agent-memory is a **cognitive memory engine** for llms and agents.
 
 - 🧠 real long-term memory (not just embeddings in a table)
 - 💾 self-hosted, local-first (sqlite / postgres)
@@ -21,11 +32,11 @@ your model stays stateless. **your app stops being amnesiac.**
 ## quick start
 
 ```bash
-npm install openmemory-js
+npm install @presidio-dev/agent-memory
 ```
 
 ```typescript
-import { Memory } from "openmemory-js"
+import { Memory } from "@presidio-dev/agent-memory"
 
 const mem = new Memory()
 await mem.add("user likes spicy food", { user_id: "u1" })
@@ -124,7 +135,7 @@ OM_VALKEY_URL=redis://localhost:6379
 ### programmatic usage
 
 ```typescript
-import { Memory } from 'openmemory-js';
+import { Memory } from '@presidio-dev/agent-memory';
 
 const mem = new Memory('user-123');  // optional user_id
 
@@ -164,10 +175,10 @@ await mem.wipe();
 
 ## mcp server
 
-openmemory-js includes an mcp server for integration with claude desktop, cursor, windsurf, and other mcp clients:
+@presidio-dev/agent-memory includes an mcp server for integration with claude desktop, cursor, windsurf, and other mcp clients:
 
 ```bash
-npx openmemory-js serve --port 3000
+npx @presidio-dev/agent-memory serve --port 3000
 ```
 
 ### claude desktop / cursor / windsurf
@@ -175,9 +186,9 @@ npx openmemory-js serve --port 3000
 ```json
 {
   "mcpServers": {
-    "openmemory": {
+    "agent-memory": {
       "command": "npx",
-      "args": ["openmemory-js", "serve"]
+      "args": ["@presidio-dev/agent-memory", "serve"]
     }
   }
 }

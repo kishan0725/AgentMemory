@@ -1,10 +1,36 @@
 {
-    "name": "openmemory-js",
-    "version": "1.3.1",
-    "author": "nullure",
+    "name": "@presidio-dev/agent-memory",
+    "version": "1.0.0",
+    "description": "Long-term memory engine for AI agents - Presidio fork of OpenMemory with additional features (based on OpenMemory v1.3.2)",
+    "author": "Presidio",
+    "contributors": [
+        "nullure (original OpenMemory author)"
+    ],
+    "license": "Apache-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/kishan0725/OpenMemory.git",
+        "directory": "packages/openmemory-js"
+    },
+    "homepage": "https://github.com/kishan0725/OpenMemory",
+    "keywords": [
+        "ai",
+        "memory",
+        "llm",
+        "agents",
+        "cognitive",
+        "temporal-graph",
+        "mcp",
+        "langchain",
+        "crewai",
+        "autogen"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
     "bin": {
         "opm": "./bin/opm.js",
-        "openmemory-js": "./bin/opm.js"
+        "agent-memory": "./bin/opm.js"
     },
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
