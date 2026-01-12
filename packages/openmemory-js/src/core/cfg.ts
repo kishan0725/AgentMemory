@@ -77,6 +77,7 @@ export const env = {
         "sqlite",
     ).toLowerCase(),
     vector_backend: str(process.env.OM_VECTOR_BACKEND, "postgres").toLowerCase(),
+    use_pgvector: bool(process.env.OM_USE_PGVECTOR),
     valkey_host: str(process.env.OM_VALKEY_HOST, "localhost"),
     valkey_port: num(process.env.OM_VALKEY_PORT, 6379),
     valkey_password: process.env.OM_VALKEY_PASSWORD,

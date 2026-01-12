@@ -29,7 +29,7 @@ export class PostgresVectorStore implements VectorStore {
         await this.db.run_async(`delete from ${this.table} where id=$1`, [id]);
     }
 
-    async searchSimilar(sector: string, queryVec: number[], topK: number): Promise<Array<{ id: string; score: number }>> {
+    async searchSimilar(sector: string, queryVec: number[], topK: number, user_id?: string): Promise<Array<{ id: string; score: number }>> {
 
         const rows = await this.db.all_async(`select id,v,dim from ${this.table} where sector=$1`, [sector]);
         console.error(`[Vector] Search Sector: ${sector}, Found ${rows.length} rows.`);

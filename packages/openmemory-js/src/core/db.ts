@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { VectorStore } from "./vector_store";
 import { PostgresVectorStore } from "./vector/postgres";
+import { PgVectorStore } from "./vector/pgvector";
 import { ValkeyVectorStore } from "./vector/valkey";
 
 type q_type = {
@@ -155,9 +156,20 @@ if (is_pg) {
         await pg.query(
             `create table if not exists ${m}(id uuid primary key,user_id text,segment integer default 0,content text not null,simhash text,primary_sector text not null,tags text,meta text,created_at bigint,updated_at bigint,last_seen_at bigint,salience double precision,decay_lambda double precision,version integer default 1,mean_dim integer,mean_vec bytea,compressed_vec bytea,feedback_score double precision default 0)`,
         );
-        await pg.query(
-            `create table if not exists ${v}(id uuid,sector text,user_id text,v bytea,dim integer not null,primary key(id,sector))`,
-        );
+        
+        if (env.use_pgvector) {
+            await pg.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+            await pg.query(
+                `create table if not exists ${v}(id uuid,sector text,user_id text,v vector(1024),dim integer not null,primary key(id,sector))`,
+            );
+            await pg.query(
+                `create index if not exists openmemory_vectors_hnsw_idx on ${v} using hnsw (v vector_cosine_ops) with (m = 16, ef_construction = 64)`,
+            );
+        } else {
+            await pg.query(
+                `create table if not exists ${v}(id uuid,sector text,user_id text,v bytea,dim integer not null,primary key(id,sector))`,
+            );
+        }
         await pg.query(
             `create table if not exists ${w}(src_id text,dst_id text not null,user_id text,weight double precision not null,created_at bigint,updated_at bigint,primary key(src_id,user_id))`,
         );
@@ -230,8 +242,10 @@ if (is_pg) {
         if (env.vector_backend === "valkey") {
             vector_store = new ValkeyVectorStore();
             console.error("[DB] Using Valkey VectorStore");
+        } else if (env.use_pgvector) {
+            vector_store = new PgVectorStore({ run_async, get_async, all_async }, v.replace(/"/g, ""));
+            console.error(`[DB] Using PgVector VectorStore with table: ${v}`);
         } else {
-            const vt = process.env.OM_VECTOR_TABLE || "openmemory_vectors";
             vector_store = new PostgresVectorStore({ run_async, get_async, all_async }, v.replace(/"/g, ""));
             console.error(`[DB] Using Postgres VectorStore with table: ${v}`);
         }

@@ -61,7 +61,7 @@ export class ValkeyVectorStore implements VectorStore {
         } while (cursor !== "0");
     }
 
-    async searchSimilar(sector: string, queryVec: number[], topK: number): Promise<Array<{ id: string; score: number }>> {
+    async searchSimilar(sector: string, queryVec: number[], topK: number, user_id?: string): Promise<Array<{ id: string; score: number }>> {
 
 
 
