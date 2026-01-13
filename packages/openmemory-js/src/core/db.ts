@@ -183,10 +183,10 @@ if (is_pg) {
             `create table if not exists "${sc}"."stats"(id serial primary key,type text not null,count integer default 1,ts bigint not null)`,
         );
         await pg.query(
-            `create table if not exists "${sc}"."temporal_facts"(id uuid primary key,subject text not null,predicate text not null,object text not null,valid_from bigint not null,valid_to bigint,confidence double precision not null check(confidence >= 0 and confidence <= 1),last_updated bigint not null,metadata text,unique(subject,predicate,object,valid_from))`,
+            `create table if not exists "${sc}"."temporal_facts"(id uuid primary key,subject text not null,predicate text not null,object text not null,valid_from bigint not null,valid_to bigint,confidence double precision not null check(confidence >= 0 and confidence <= 1),last_updated bigint not null,metadata text,user_id text)`,
         );
         await pg.query(
-            `create table if not exists "${sc}"."temporal_edges"(id uuid primary key,source_id uuid not null,target_id uuid not null,relation_type text not null,valid_from bigint not null,valid_to bigint,weight double precision not null,metadata text,foreign key(source_id) references "${sc}"."temporal_facts"(id),foreign key(target_id) references "${sc}"."temporal_facts"(id))`,
+            `create table if not exists "${sc}"."temporal_edges"(id uuid primary key,source_id uuid not null,target_id uuid not null,relation_type text not null,valid_from bigint not null,valid_to bigint,weight double precision not null,metadata text,user_id text,foreign key(source_id) references "${sc}"."temporal_facts"(id),foreign key(target_id) references "${sc}"."temporal_facts"(id))`,
         );
         await pg.query(
             `create index if not exists temporal_facts_subject_idx on "${sc}"."temporal_facts"(subject)`,
@@ -201,7 +201,19 @@ if (is_pg) {
             `create index if not exists temporal_facts_composite_idx on "${sc}"."temporal_facts"(subject,predicate,valid_from,valid_to)`,
         );
         await pg.query(
+            `create index if not exists temporal_facts_user_idx on "${sc}"."temporal_facts"(user_id)`,
+        );
+        await pg.query(
+            `create index if not exists temporal_facts_user_subject_pred_idx on "${sc}"."temporal_facts"(user_id,subject,predicate,valid_from,valid_to)`,
+        );
+        await pg.query(
+            `create index if not exists temporal_facts_object_idx on "${sc}"."temporal_facts"(object)`,
+        );
+        await pg.query(
             `create index if not exists temporal_edges_source_idx on "${sc}"."temporal_edges"(source_id)`,
+        );
+        await pg.query(
+            `create index if not exists temporal_edges_user_idx on "${sc}"."temporal_edges"(user_id)`,
         );
         await pg.query(
             `create index if not exists temporal_edges_target_idx on "${sc}"."temporal_edges"(target_id)`,
@@ -503,10 +515,10 @@ if (is_pg) {
             `create table if not exists stats(id integer primary key autoincrement,type text not null,count integer default 1,ts integer not null)`,
         );
         db.run(
-            `create table if not exists temporal_facts(id text primary key,subject text not null,predicate text not null,object text not null,valid_from integer not null,valid_to integer,confidence real not null check(confidence >= 0 and confidence <= 1),last_updated integer not null,metadata text,unique(subject,predicate,object,valid_from))`,
+            `create table if not exists temporal_facts(id text primary key,subject text not null,predicate text not null,object text not null,valid_from integer not null,valid_to integer,confidence real not null check(confidence >= 0 and confidence <= 1),last_updated integer not null,metadata text,user_id text)`,
         );
         db.run(
-            `create table if not exists temporal_edges(id text primary key,source_id text not null,target_id text not null,relation_type text not null,valid_from integer not null,valid_to integer,weight real not null,metadata text,foreign key(source_id) references temporal_facts(id),foreign key(target_id) references temporal_facts(id))`,
+            `create table if not exists temporal_edges(id text primary key,source_id text not null,target_id text not null,relation_type text not null,valid_from integer not null,valid_to integer,weight real not null,metadata text,user_id text,foreign key(source_id) references temporal_facts(id),foreign key(target_id) references temporal_facts(id))`,
         );
         db.run(
             "create index if not exists idx_memories_sector on memories(primary_sector)",
@@ -550,7 +562,19 @@ if (is_pg) {
             "create index if not exists idx_temporal_composite on temporal_facts(subject,predicate,valid_from,valid_to)",
         );
         db.run(
+            "create index if not exists idx_temporal_user on temporal_facts(user_id)",
+        );
+        db.run(
+            "create index if not exists idx_temporal_user_subject_pred on temporal_facts(user_id,subject,predicate,valid_from,valid_to)",
+        );
+        db.run(
+            "create index if not exists idx_temporal_object on temporal_facts(object)",
+        );
+        db.run(
             "create index if not exists idx_edges_source on temporal_edges(source_id)",
+        );
+        db.run(
+            "create index if not exists idx_edges_user on temporal_edges(user_id)",
         );
         db.run(
             "create index if not exists idx_edges_target on temporal_edges(target_id)",

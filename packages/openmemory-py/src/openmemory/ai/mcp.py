@@ -63,7 +63,6 @@ async def run_mcp_server():
                     },
                     "required": ["id"]
                 }
-                }
             ),
              Tool(
                 name="openmemory_delete",

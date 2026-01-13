@@ -203,6 +203,7 @@ export const create_mcp_srv = () => {
                     fact_pattern?.object,
                     at_date,
                     0.0,
+                    u
                 );
 
                 results.factual = facts.map((f: any) => ({
@@ -214,6 +215,7 @@ export const create_mcp_srv = () => {
                     valid_from: f.valid_from,
                     valid_to: f.valid_to,
                     confidence: Number(f.confidence.toFixed(4)),
+                    user_id: f.user_id,
                     content: `${f.subject} ${f.predicate} ${f.object}`,
                 }));
             }
@@ -380,6 +382,7 @@ export const create_mcp_srv = () => {
                         valid_from,
                         confidence,
                         metadata,
+                        u
                     );
 
                     temporal_results.push({
@@ -389,6 +392,7 @@ export const create_mcp_srv = () => {
                         object: fact.object,
                         valid_from: valid_from.toISOString(),
                         confidence,
+                        user_id: u,
                     });
                 }
                 results.temporal = temporal_results;

@@ -4,6 +4,30 @@
 
 ---
 
+## Implementation Checklist
+
+### 🔴 Critical Priority
+- [ ] **#1** - Implement table partitioning by user_id for PgVector
+- [x] **#2** - Add user_id column to temporal_facts and filter all queries ✅
+- [ ] **#3** - Fix HSG cache user isolation and add disable option
+- [ ] **#4** - Add limit/offset pagination to temporal fact queries
+- [x] **#5** - Create object index on temporal_facts table ✅
+- [ ] **#6** - Optimize HSG query with batch DB fetching
+- [ ] **#7** - Use pgvector HNSW for waypoint similarity search
+- [ ] **#8** - Fix waypoint expansion boundary check
+
+### 🟡 High Priority
+- [ ] **#9** - Replace setInterval with cron-based coactivation job queue
+- [ ] **#10** - Add batch MCP tools for bulk operations
+- [ ] **#11** - Add metadata filtering (tags, dates) to openmemory_query
+
+### 🟠 Medium Priority
+- [ ] **#12** - Create openmemory_update_fact tool for confidence/metadata updates
+- [ ] **#13** - Enhance error responses with codes, traces, and suggestions
+- [ ] **#14** - Standardize date handling to ISO 8601 strings
+
+---
+
 ## 🔴 Critical Priority
 
 ### 1. PgVector Post-Filtering Performance Issue
@@ -13,11 +37,12 @@
 **Files:** `packages/openmemory-js/src/core/db.ts`, `packages/openmemory-js/src/core/vector/pgvector.ts`  
 **Note:** PgVector limitation - WHERE clause filtering happens after HNSW neighbor search completes
 
-### 2. User Level Isolation for Temporal Facts
+### 2. User Level Isolation for Temporal Facts ✅ COMPLETED
 **Problem:** Temporal facts are not filtered by user_id, causing data leakage between users  
 **Impact:** Security vulnerability - users can see other users' facts in multi-tenant scenarios  
 **Action:** Add `user_id` column to `temporal_facts` table and filter all queries by user  
 **Files:** `packages/openmemory-js/src/core/db.ts`, `packages/openmemory-js/src/temporal_graph/query.ts`, `packages/openmemory-js/src/ai/mcp.ts`  
+**Status:** ✅ Implemented
 
 ### 3. HSG Cache User Isolation Bug
 **Problem:** Cache key doesn't include user_id, causing cross-user data leakage in multi-tenant deployments  
@@ -35,11 +60,12 @@
 **Action:** Add `limit` and `offset` parameters to all temporal query functions  
 **Files:** `packages/openmemory-js/src/temporal_graph/query.ts`, `packages/openmemory-js/src/ai/mcp.ts`  
 
-### 5. Missing Object Index
+### 5. Missing Object Index ✅ COMPLETED
 **Problem:** Queries filtering by fact `object` field perform full table scans  
 **Impact:** Severe performance degradation on large fact tables  
 **Action:** Add database index: `CREATE INDEX temporal_facts_object_idx ON temporal_facts(object)`  
 **Files:** `packages/openmemory-js/src/core/db.ts`  
+**Status:** ✅ Implemented
 
 ### 6. Excessive Database Calls in HSG Query
 **Problem:** Query loop makes 40+ sequential DB calls (4 per result for 10 results)  
@@ -143,29 +169,5 @@ Database Schema:        packages/openmemory-js/src/core/db.ts
 PgVector Store:         packages/openmemory-js/src/core/vector/pgvector.ts
 Vector Store Interface: packages/openmemory-js/src/core/vector_store.ts
 ```
-
----
-
-## Implementation Checklist
-
-### 🔴 Critical Priority
-- [ ] **#1** - Implement table partitioning by user_id for PgVector
-- [ ] **#2** - Add user_id column to temporal_facts and filter all queries
-- [ ] **#3** - Fix HSG cache user isolation and add disable option
-- [ ] **#4** - Add limit/offset pagination to temporal fact queries
-- [ ] **#5** - Create object index on temporal_facts table
-- [ ] **#6** - Optimize HSG query with batch DB fetching
-- [ ] **#7** - Use pgvector HNSW for waypoint similarity search
-- [ ] **#8** - Fix waypoint expansion boundary check
-
-### 🟡 High Priority
-- [ ] **#9** - Replace setInterval with cron-based coactivation job queue
-- [ ] **#10** - Add batch MCP tools for bulk operations
-- [ ] **#11** - Add metadata filtering (tags, dates) to openmemory_query
-
-### 🟠 Medium Priority
-- [ ] **#12** - Create openmemory_update_fact tool for confidence/metadata updates
-- [ ] **#13** - Enhance error responses with codes, traces, and suggestions
-- [ ] **#14** - Standardize date handling to ISO 8601 strings
 
 ---

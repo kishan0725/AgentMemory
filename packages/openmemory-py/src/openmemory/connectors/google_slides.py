@@ -74,7 +74,7 @@ class google_slides_connector(base_connector):
         slides = []
         for i, slide in enumerate(pres.get("slides", [])):
             slides.append({
-                "id": f"{presentation_id}
+                "id": f"{presentation_id}#{slide['objectId']}",
                 "name": f"Slide {i + 1}",
                 "type": "slide",
                 "index": i,
@@ -88,7 +88,7 @@ class google_slides_connector(base_connector):
         """
         fetch presentation or single slide text
 
-        item_id format: "presentation_id" or "presentation_id
+        item_id format: "presentation_id" or "presentation_id#slide_id"
         """
         if not self._connected:
             await self.connect()
