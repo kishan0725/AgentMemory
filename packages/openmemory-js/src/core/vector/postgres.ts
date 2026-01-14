@@ -30,9 +30,22 @@ export class PostgresVectorStore implements VectorStore {
     }
 
     async searchSimilar(sector: string, queryVec: number[], topK: number, user_id?: string): Promise<Array<{ id: string; score: number }>> {
-
-        const rows = await this.db.all_async(`select id,v,dim from ${this.table} where sector=$1`, [sector]);
-        console.error(`[Vector] Search Sector: ${sector}, Found ${rows.length} rows.`);
+        let sql: string;
+        let params: any[];
+        
+        if (user_id) {
+            sql = `select id,v,dim from ${this.table} where sector=$1 and user_id=$2`;
+            params = [sector, user_id];
+            console.error(`[Vector] Search Sector: ${sector}, User: ${user_id}`);
+        } else {
+            sql = `select id,v,dim from ${this.table} where sector=$1`;
+            params = [sector];
+            console.error(`[Vector] Search Sector: ${sector}, All users`);
+        }
+        
+        const rows = await this.db.all_async(sql, params);
+        console.error(`[Vector] Found ${rows.length} vectors to scan`);
+        
         const sims: Array<{ id: string; score: number }> = [];
         for (const row of rows) {
             const vec = bufferToVector(row.v);

@@ -12,19 +12,20 @@
 - [ ] **#3** - Fix HSG cache user isolation and add disable option
 - [ ] **#4** - Add limit/offset pagination to temporal fact queries
 - [x] **#5** - Create object index on temporal_facts table ✅
-- [ ] **#6** - Optimize HSG query with batch DB fetching
-- [ ] **#7** - Use pgvector HNSW for waypoint similarity search
-- [ ] **#8** - Fix waypoint expansion boundary check
+- [x] **#6** - Fix postgres.ts user_id filtering bug ✅
+- [ ] **#7** - Optimize HSG query with batch DB fetching
+- [ ] **#8** - Use pgvector HNSW for waypoint similarity search
+- [ ] **#9** - Fix waypoint expansion boundary check
 
 ### 🟡 High Priority
-- [ ] **#9** - Replace setInterval with cron-based coactivation job queue
-- [ ] **#10** - Add batch MCP tools for bulk operations
-- [ ] **#11** - Add metadata filtering (tags, dates) to openmemory_query
+- [ ] **#10** - Replace setInterval with cron-based coactivation job queue
+- [ ] **#11** - Add batch MCP tools for bulk operations
+- [ ] **#12** - Add metadata filtering (tags, dates) to openmemory_query
 
 ### 🟠 Medium Priority
-- [ ] **#12** - Create openmemory_update_fact tool for confidence/metadata updates
-- [ ] **#13** - Enhance error responses with codes, traces, and suggestions
-- [ ] **#14** - Standardize date handling to ISO 8601 strings
+- [ ] **#13** - Create openmemory_update_fact tool for confidence/metadata updates
+- [ ] **#14** - Enhance error responses with codes, traces, and suggestions
+- [ ] **#15** - Standardize date handling to ISO 8601 strings
 
 ---
 
@@ -67,20 +68,27 @@
 **Files:** `packages/openmemory-js/src/core/db.ts`  
 **Status:** ✅ Implemented
 
-### 6. Excessive Database Calls in HSG Query
+### 6. Postgres.ts Missing User Filtering ✅ COMPLETED
+**Problem:** postgres.ts searchSimilar() accepts user_id parameter but doesn't use it in SQL query  
+**Impact:** Security vulnerability for non-pgvector deployments - returns all users' vectors  
+**Action:** Add user_id to WHERE clause in searchSimilar()  
+**Files:** `packages/openmemory-js/src/core/vector/postgres.ts`  
+**Status:** ✅ Implemented
+
+### 7. Excessive Database Calls in HSG Query
 **Problem:** Query loop makes 40+ sequential DB calls (4 per result for 10 results)  
 **Impact:** High latency on every search operation  
 **Action:** Batch fetch all memories and vectors in 2 queries instead of N*4  
 **Files:** `packages/openmemory-js/src/memory/hsg.ts` (line ~680)  
 
-### 7. Similarity-Based Waypoint Creation Performance
+### 8. Similarity-Based Waypoint Creation Performance
 **Problem:** Linear O(n) scan with in-memory cosine similarity on every insert  
 **Impact:** 172ms per insert with 1000 memories; blocks new memory creation  
 **Action:** Store mean vectors in pgvector table and use HNSW index for top-1 search  
 **Files:** `packages/openmemory-js/src/memory/hsg.ts` (line ~425)  
 **Performance gain:** 20-200x faster (172ms → 5-8ms)
 
-### 8. Unbounded Waypoint Expansion Bug
+### 9. Unbounded Waypoint Expansion Bug
 **Problem:** `max_exp` limit can be exceeded by up to max_neighbors per node  
 **Impact:** Unpredictable query times, potential timeouts in dense graphs  
 **Action:** Check expansion limit before adding each neighbor, not after  
@@ -90,7 +98,7 @@
 
 ## 🟡 High Priority
 
-### 9. Replace setInterval Coactivation with Cron-Based Job Queue
+### 10. Replace setInterval Coactivation with Cron-Based Job Queue
 **Problem:** In-memory coactivation buffer with setInterval has multiple issues:
   - Unbounded growth under high load (no size limit)
   - Lost on server restart/deployment
@@ -120,13 +128,13 @@
   - ✅ Explicit retry and error handling
   - ✅ No memory leaks
 
-### 10. Batch Operations Support
+### 11. Batch Operations Support
 **Problem:** All MCP operations are single-item only (store/delete/reinforce one at a time)  
 **Impact:** Inefficient bulk imports - 100 memories require 100 sequential MCP calls  
 **Action:** Add `openmemory_store_batch`, `openmemory_delete_batch` tools  
 **Files:** `packages/openmemory-js/src/ai/mcp.ts`
 
-### 11. No Metadata Filtering
+### 12. No Metadata Filtering
 **Problem:** Cannot filter queries by tags, date ranges, or custom metadata fields  
 **Impact:** Limited query expressiveness, post-fetch filtering is inefficient  
 **Action:** Add `tags`, `startTime`, `endTime`, `metadata` filters to `openmemory_query` tool  
@@ -136,19 +144,19 @@
 
 ## 🟠 Medium Priority
 
-### 12. No Temporal Fact Update Tool
+### 13. No Temporal Fact Update Tool
 **Problem:** Cannot modify fact confidence, metadata, or manually close facts via MCP  
 **Impact:** Temporal facts are immutable once created  
 **Action:** Add `openmemory_update_fact` tool with confidence/metadata updates  
 **Files:** `packages/openmemory-js/src/ai/mcp.ts`, `packages/openmemory-js/src/temporal_graph/store.ts`  
 
-### 13. Minimal Error Context
+### 14. Minimal Error Context
 **Problem:** Errors return only message string, no codes/traces/suggestions  
 **Impact:** Difficult to debug MCP failures  
 **Action:** Enhance error responses with error codes, stack traces, actionable suggestions  
 **Files:** `packages/openmemory-js/src/ai/mcp_tools.ts` 
 
-### 14. Date Format Inconsistency
+### 15. Date Format Inconsistency
 **Problem:** Mix of Date objects, timestamps, and ISO strings across codebase  
 **Impact:** Potential timezone bugs in point-in-time queries  
 **Action:** Standardize on ISO 8601 strings everywhere, document timezone handling  
