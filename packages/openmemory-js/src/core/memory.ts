@@ -1,7 +1,6 @@
 
 import { add_hsg_memory, hsg_query } from "../memory/hsg";
-import { q, log_maint_op } from "./db";
-import { env } from "./cfg";
+import { q, get_async } from "./db";
 import { j } from "../utils";
 import {
     insert_fact,
@@ -29,6 +28,7 @@ export interface FactOptions {
     confidence?: number;
     valid_from?: Date;
     metadata?: Record<string, any>;
+    user_id?: string;
 }
 
 export interface TemporalQueryOptions {
@@ -37,6 +37,7 @@ export interface TemporalQueryOptions {
     object?: string;
     at?: Date;
     min_confidence?: number;
+    user_id?: string;
 }
 
 export interface UnifiedQueryOptions {
@@ -165,6 +166,7 @@ export class Memory {
         const valid_from = opts?.valid_from || new Date();
         const confidence = opts?.confidence ?? 1.0;
         const metadata = opts?.metadata;
+        const uid = opts?.user_id || this.default_user;
 
         return await insert_fact(
             subject,
@@ -172,7 +174,8 @@ export class Memory {
             object,
             valid_from,
             confidence,
-            metadata
+            metadata,
+            uid ?? undefined
         );
     }
 
@@ -191,8 +194,14 @@ export class Memory {
         confidence?: number;
         valid_from?: Date;
         metadata?: Record<string, any>;
-    }>): Promise<string[]> {
-        return await batch_insert_facts(facts);
+        user_id?: string;
+    }>, user_id?: string): Promise<string[]> {
+        const uid = user_id || this.default_user;
+        const factsWithUser = facts.map(f => ({
+            ...f,
+            user_id: f.user_id || (uid ?? undefined)
+        }));
+        return await batch_insert_facts(factsWithUser);
     }
 
     /**
@@ -210,13 +219,15 @@ export class Memory {
     async queryFacts(opts?: TemporalQueryOptions): Promise<TemporalFact[]> {
         const at = opts?.at || new Date();
         const min_confidence = opts?.min_confidence ?? 0.0;
+        const uid = opts?.user_id || this.default_user;
 
         return await query_facts_at_time(
             opts?.subject,
             opts?.predicate,
             opts?.object,
             at,
-            min_confidence
+            min_confidence,
+            uid ?? undefined
         );
     }
 
@@ -232,9 +243,11 @@ export class Memory {
      */
     async getCurrentFact(
         subject: string,
-        predicate: string
+        predicate: string,
+        user_id?: string
     ): Promise<TemporalFact | null> {
-        return await get_current_fact(subject, predicate);
+        const uid = user_id || this.default_user;
+        return await get_current_fact(subject, predicate, uid ?? undefined);
     }
 
     /**
@@ -251,12 +264,15 @@ export class Memory {
         opts?: {
             at?: Date;
             include_historical?: boolean;
+            user_id?: string;
         }
     ): Promise<TemporalFact[]> {
+        const uid = opts?.user_id || this.default_user;
         return await get_facts_by_subject(
             subject,
             opts?.at,
-            opts?.include_historical || false
+            opts?.include_historical || false,
+            uid ?? undefined
         );
     }
 
@@ -274,13 +290,16 @@ export class Memory {
         from?: Date;
         to?: Date;
         min_confidence?: number;
+        user_id?: string;
     }): Promise<TemporalFact[]> {
+        const uid = opts.user_id || this.default_user;
         return await query_facts_in_range(
             opts.subject,
             opts.predicate,
             opts.from,
             opts.to,
-            opts.min_confidence ?? 0.0
+            opts.min_confidence ?? 0.0,
+            uid ?? undefined
         );
     }
 
@@ -297,9 +316,11 @@ export class Memory {
     async searchFacts(
         pattern: string,
         field: 'subject' | 'predicate' | 'object' = 'subject',
-        at?: Date
+        at?: Date,
+        user_id?: string
     ): Promise<TemporalFact[]> {
-        return await search_facts(pattern, field, at);
+        const uid = user_id || this.default_user;
+        return await search_facts(pattern, field, at, uid ?? undefined);
     }
 
     /**
@@ -315,8 +336,27 @@ export class Memory {
         opts: {
             confidence?: number;
             metadata?: Record<string, any>;
+            user_id?: string;
         }
     ): Promise<void> {
+        const uid = opts.user_id || this.default_user;
+
+        // Validate ownership if user_id is specified
+        if (uid) {
+            const fact = await get_async(
+                'SELECT user_id FROM temporal_facts WHERE id = ?',
+                [id]
+            ) as any;
+
+            if (!fact) {
+                throw new Error(`Fact ${id} not found`);
+            }
+
+            if (fact.user_id !== uid) {
+                throw new Error(`Fact ${id} not found for user ${uid}`);
+            }
+        }
+
         return await update_fact(id, opts.confidence, opts.metadata);
     }
 
@@ -331,8 +371,27 @@ export class Memory {
      */
     async invalidateFact(
         id: string,
-        valid_to?: Date
+        valid_to?: Date,
+        user_id?: string
     ): Promise<void> {
+        const uid = user_id || this.default_user;
+
+        // Validate ownership if user_id is specified
+        if (uid) {
+            const fact = await get_async(
+                'SELECT user_id FROM temporal_facts WHERE id = ?',
+                [id]
+            ) as any;
+
+            if (!fact) {
+                throw new Error(`Fact ${id} not found`);
+            }
+
+            if (fact.user_id !== uid) {
+                throw new Error(`Fact ${id} not found for user ${uid}`);
+            }
+        }
+
         return await invalidate_fact(id, valid_to);
     }
 
@@ -343,7 +402,25 @@ export class Memory {
      *
      * @param id - The fact ID to delete
      */
-    async deleteFact(id: string): Promise<void> {
+    async deleteFact(id: string, user_id?: string): Promise<void> {
+        const uid = user_id || this.default_user;
+
+        // Validate ownership if user_id is specified
+        if (uid) {
+            const fact = await get_async(
+                'SELECT user_id FROM temporal_facts WHERE id = ?',
+                [id]
+            ) as any;
+
+            if (!fact) {
+                throw new Error(`Fact ${id} not found`);
+            }
+
+            if (fact.user_id !== uid) {
+                throw new Error(`Fact ${id} not found for user ${uid}`);
+            }
+        }
+
         return await delete_fact(id);
     }
 
@@ -418,7 +495,8 @@ export class Memory {
                 opts?.fact_pattern?.predicate,
                 opts?.fact_pattern?.object,
                 at,
-                0.0
+                0.0,
+                user_id ?? undefined
             );
             results.factual = facts;
         }
@@ -485,11 +563,17 @@ export class Memory {
             uid ?? undefined
         );
 
-        // Store facts in temporal graph
+        // Store facts in temporal graph with link to HSG memory
         const temporal_results = [];
         for (const fact of facts) {
             const valid_from = fact.valid_from || new Date();
             const confidence = fact.confidence ?? 1.0;
+
+            // Link temporal fact to HSG memory by storing memory ID in metadata
+            const fact_metadata = {
+                ...meta,
+                source_memory_id: hsg_result.id
+            };
 
             const fact_id = await insert_fact(
                 fact.subject,
@@ -497,7 +581,8 @@ export class Memory {
                 fact.object,
                 valid_from,
                 confidence,
-                meta
+                fact_metadata,
+                uid ?? undefined
             );
 
             temporal_results.push({
