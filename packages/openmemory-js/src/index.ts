@@ -1,5 +1,7 @@
 // Export core functionality for use as a package
 export * from "./core/memory";
+// Export new unified API types
+export type { RecallOptions, RecallResult, StoreOptions, StoreResult } from "./core/memory";
 // NOTE: Do NOT export server/index as it auto-starts the HTTP server
 // export * from "./server/index";  // Commented out to prevent auto-start
 export * from "./ops/ingest";
@@ -28,8 +30,6 @@ export type {
     sector_class,
 } from "./memory/hsg";
 
-// Export database query functions - used by MCP tools
-export { q, all_async, vector_store } from "./core/db";
 
 // Export utility functions
 export { j, p } from "./utils";

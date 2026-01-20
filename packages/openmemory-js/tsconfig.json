@@ -4,6 +4,8 @@
 "module": "CommonJS",
 "moduleResolution": "node",
 "outDir": "dist",
+"declaration": true,
+"declarationMap": true,
 "allowJs": true,
 "checkJs": false,
 "esModuleInterop": true,

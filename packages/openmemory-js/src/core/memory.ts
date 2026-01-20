@@ -54,6 +54,62 @@ export interface UnifiedQueryOptions {
     user_id?: string;
 }
 
+export interface RecallOptions {
+    type?: 'contextual' | 'factual' | 'unified';
+    fact_pattern?: {
+        subject?: string;
+        predicate?: string;
+        object?: string;
+    };
+    at?: Date;
+    k?: number;
+    sector?: string;
+    min_salience?: number;
+    user_id?: string;
+}
+
+export interface RecallResult {
+    contextual?: Array<{
+        id: string;
+        score: number;
+        content: string;
+        primary_sector: string;
+        sectors: string[];
+        salience: number;
+        last_seen_at: number;
+        path: string[];
+    }>;
+    factual?: Array<TemporalFact>;
+}
+
+export interface StoreOptions {
+    type?: 'contextual' | 'factual' | 'both';
+    facts?: Array<{
+        subject: string;
+        predicate: string;
+        object: string;
+        confidence?: number;
+        valid_from?: Date;
+    }>;
+    tags?: string[];
+    metadata?: Record<string, any>;
+    user_id?: string;
+}
+
+export interface StoreResult {
+    hsg?: {
+        id: string;
+        primary_sector: string;
+        sectors: string[];
+    };
+    temporal?: Array<{
+        id: string;
+        subject: string;
+        predicate: string;
+        object: string;
+    }>;
+}
+
 export class Memory {
     default_user: string | null;
 
@@ -81,8 +137,36 @@ export class Memory {
         return res;
     }
 
-    async get(id: string) {
-        return await q.get_mem.get(id);
+    async get(id: string, opts?: { include_vectors?: boolean }) {
+        const mem = await q.get_mem.get(id);
+        if (!mem) return null;
+
+        if (opts?.include_vectors) {
+            const { vector_store } = await import("./db");
+            const vectors = await vector_store.getVectorsById(id);
+            return { ...mem, vectors };
+        }
+
+        return mem;
+    }
+
+    async list(opts?: { user_id?: string, limit?: number, offset?: number, sector?: string }) {
+        const limit = opts?.limit || 10;
+        const offset = opts?.offset || 0;
+        const uid = opts?.user_id || this.default_user;
+        const sector = opts?.sector;
+
+        let rows: any[];
+        if (uid) {
+            const all = await q.all_mem_by_user.all(uid, limit, offset);
+            rows = sector ? all.filter((row: any) => row.primary_sector === sector) : all;
+        } else {
+            rows = sector
+                ? await q.all_mem_by_sector.all(sector, limit, offset)
+                : await q.all_mem.all(limit, offset);
+        }
+
+        return rows;
     }
 
     async search(query: string, opts?: { user_id?: string, limit?: number, sectors?: string[] }) {
@@ -505,6 +589,32 @@ export class Memory {
     }
 
     /**
+     * Recall memories from HSG (contextual memory) and/or temporal graph (facts).
+     *
+     * This is the primary unified query method with a clean, intuitive API.
+     * It pairs semantically with store() for a consistent read/write interface.
+     *
+     * Query types:
+     *   - 'unified': Search both HSG and temporal facts (default)
+     *   - 'contextual': Search only HSG semantic memory
+     *   - 'factual': Search only temporal facts
+     *
+     * Examples:
+     *   recall("What did John work on last year?", { type: 'unified', at: pastDate })
+     *   recall("Find employment facts", { type: 'factual', fact_pattern: { predicate: 'works_at' } })
+     *   recall("Recent project work", { type: 'contextual', sector: 'episodic' })
+     *
+     * @param query - Free-form search text
+     * @param opts - Query options for filtering and routing
+     * @returns Results from HSG and/or temporal graph
+     */
+    async recall(query: string, opts?: RecallOptions): Promise<RecallResult> {
+        // Default to 'unified' for recall (vs 'contextual' for queryUnified)
+        const type = opts?.type || 'unified';
+        return await this.queryUnified(query, { ...opts, type });
+    }
+
+    /**
      * Store content in both HSG (contextual memory) and temporal graph (facts) simultaneously.
      *
      * This creates rich, interconnected memory by storing both:
@@ -563,35 +673,25 @@ export class Memory {
             uid ?? undefined
         );
 
-        // Store facts in temporal graph with link to HSG memory
-        const temporal_results = [];
-        for (const fact of facts) {
-            const valid_from = fact.valid_from || new Date();
-            const confidence = fact.confidence ?? 1.0;
+        // Store facts in temporal graph with link to HSG memory using batch insert
+        const factsToInsert = facts.map(f => ({
+            subject: f.subject,
+            predicate: f.predicate,
+            object: f.object,
+            valid_from: f.valid_from || new Date(),
+            confidence: f.confidence ?? 1.0,
+            metadata: { ...meta, source_memory_id: hsg_result.id },
+            user_id: uid ?? undefined
+        }));
 
-            // Link temporal fact to HSG memory by storing memory ID in metadata
-            const fact_metadata = {
-                ...meta,
-                source_memory_id: hsg_result.id
-            };
+        const fact_ids = await batch_insert_facts(factsToInsert);
 
-            const fact_id = await insert_fact(
-                fact.subject,
-                fact.predicate,
-                fact.object,
-                valid_from,
-                confidence,
-                fact_metadata,
-                uid ?? undefined
-            );
-
-            temporal_results.push({
-                id: fact_id,
-                subject: fact.subject,
-                predicate: fact.predicate,
-                object: fact.object,
-            });
-        }
+        const temporal_results = facts.map((fact, index) => ({
+            id: fact_ids[index],
+            subject: fact.subject,
+            predicate: fact.predicate,
+            object: fact.object,
+        }));
 
         return {
             hsg: {
@@ -601,5 +701,104 @@ export class Memory {
             },
             temporal: temporal_results,
         };
+    }
+
+    /**
+     * Store content into OpenMemory's HSG (contextual) and/or temporal graph (facts).
+     *
+     * This is the primary unified write method with a clean, intuitive API.
+     * It pairs semantically with recall() for a consistent read/write interface.
+     *
+     * Storage types:
+     *   - 'contextual': Store only in HSG semantic memory (default)
+     *   - 'factual': Store only in temporal graph as structured facts
+     *   - 'both': Store in both HSG and temporal graph with bidirectional linking
+     *
+     * Examples:
+     *   // Store contextual memory only
+     *   store("John loves TypeScript", { tags: ["preferences"] })
+     *
+     *   // Store temporal facts only
+     *   store("", {
+     *     type: 'factual',
+     *     facts: [{ subject: "John", predicate: "works_at", object: "Acme Corp" }]
+     *   })
+     *
+     *   // Store in both systems with linking
+     *   store("John started at Acme Corp as SWE on Jan 1, 2023", {
+     *     type: 'both',
+     *     facts: [
+     *       { subject: "John", predicate: "works_at", object: "Acme Corp" },
+     *       { subject: "John", predicate: "role", object: "Software Engineer" }
+     *     ],
+     *     tags: ["employment"]
+     *   })
+     *
+     * @param content - Natural language text to store (required for 'contextual' and 'both')
+     * @param opts - Storage options including type, facts, tags, metadata, and user_id
+     * @returns IDs and metadata for stored memories and/or facts
+     */
+    async store(content: string, opts?: StoreOptions): Promise<StoreResult> {
+        const type = opts?.type || 'contextual';
+        const uid = opts?.user_id || this.default_user;
+        const result: StoreResult = {};
+
+        // Validate requirements
+        if (type === 'factual' && (!opts?.facts || opts.facts.length === 0)) {
+            throw new Error("Facts array is required when type is 'factual'");
+        }
+        if ((type === 'contextual' || type === 'both') && !content) {
+            throw new Error(`Content is required when type is '${type}'`);
+        }
+
+        // Store in HSG if contextual or both
+        if (type === 'contextual' || type === 'both') {
+            const tags = opts?.tags || [];
+            const meta = { ...opts?.metadata };
+
+            const hsg_result = await add_hsg_memory(
+                content,
+                JSON.stringify(tags),
+                meta,
+                uid ?? undefined
+            );
+
+            result.hsg = {
+                id: hsg_result.id,
+                primary_sector: hsg_result.primary_sector,
+                sectors: hsg_result.sectors,
+            };
+        }
+
+        // Store in temporal graph if factual or both
+        if ((type === 'factual' || type === 'both') && opts?.facts) {
+            const meta = { ...opts?.metadata };
+
+            // Link to HSG memory if storing both
+            if (type === 'both' && result.hsg?.id) {
+                meta.source_memory_id = result.hsg.id;
+            }
+
+            const factsToInsert = opts.facts.map(f => ({
+                subject: f.subject,
+                predicate: f.predicate,
+                object: f.object,
+                valid_from: f.valid_from || new Date(),
+                confidence: f.confidence ?? 1.0,
+                metadata: meta,
+                user_id: uid ?? undefined
+            }));
+
+            const fact_ids = await batch_insert_facts(factsToInsert);
+
+            result.temporal = opts.facts.map((fact, index) => ({
+                id: fact_ids[index],
+                subject: fact.subject,
+                predicate: fact.predicate,
+                object: fact.object,
+            }));
+        }
+
+        return result;
     }
 }

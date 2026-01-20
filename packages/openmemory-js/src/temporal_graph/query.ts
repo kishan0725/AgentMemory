@@ -58,10 +58,11 @@ export const query_facts_at_time = async (
         subject: row.subject,
         predicate: row.predicate,
         object: row.object,
-        valid_from: new Date(row.valid_from),
-        valid_to: row.valid_to ? new Date(row.valid_to) : null,
+        // Convert timestamps to numbers first (they may be stored as strings in SQLite)
+        valid_from: new Date(Number(row.valid_from)),
+        valid_to: row.valid_to ? new Date(Number(row.valid_to)) : null,
         confidence: row.confidence,
-        last_updated: new Date(row.last_updated),
+        last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
@@ -96,10 +97,11 @@ export const get_current_fact = async (
         subject: row.subject,
         predicate: row.predicate,
         object: row.object,
-        valid_from: new Date(row.valid_from),
-        valid_to: row.valid_to ? new Date(row.valid_to) : null,
+        // Convert timestamps to numbers first (they may be stored as strings in SQLite)
+        valid_from: new Date(Number(row.valid_from)),
+        valid_to: row.valid_to ? new Date(Number(row.valid_to)) : null,
         confidence: row.confidence,
-        last_updated: new Date(row.last_updated),
+        last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }
@@ -164,10 +166,11 @@ export const query_facts_in_range = async (
         subject: row.subject,
         predicate: row.predicate,
         object: row.object,
-        valid_from: new Date(row.valid_from),
-        valid_to: row.valid_to ? new Date(row.valid_to) : null,
+        // Convert timestamps to numbers first (they may be stored as strings in SQLite)
+        valid_from: new Date(Number(row.valid_from)),
+        valid_to: row.valid_to ? new Date(Number(row.valid_to)) : null,
         confidence: row.confidence,
-        last_updated: new Date(row.last_updated),
+        last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
@@ -205,10 +208,11 @@ export const find_conflicting_facts = async (
         subject: row.subject,
         predicate: row.predicate,
         object: row.object,
-        valid_from: new Date(row.valid_from),
-        valid_to: row.valid_to ? new Date(row.valid_to) : null,
+        // Convert timestamps to numbers first (they may be stored as strings in SQLite)
+        valid_from: new Date(Number(row.valid_from)),
+        valid_to: row.valid_to ? new Date(Number(row.valid_to)) : null,
         confidence: row.confidence,
-        last_updated: new Date(row.last_updated),
+        last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
@@ -266,10 +270,11 @@ export const get_facts_by_subject = async (
         subject: row.subject,
         predicate: row.predicate,
         object: row.object,
-        valid_from: new Date(row.valid_from),
-        valid_to: row.valid_to ? new Date(row.valid_to) : null,
+        // Convert timestamps to numbers first (they may be stored as strings in SQLite)
+        valid_from: new Date(Number(row.valid_from)),
+        valid_to: row.valid_to ? new Date(Number(row.valid_to)) : null,
         confidence: row.confidence,
-        last_updated: new Date(row.last_updated),
+        last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
@@ -309,10 +314,11 @@ export const search_facts = async (
         subject: row.subject,
         predicate: row.predicate,
         object: row.object,
-        valid_from: new Date(row.valid_from),
-        valid_to: row.valid_to ? new Date(row.valid_to) : null,
+        // Convert timestamps to numbers first (they may be stored as strings in SQLite)
+        valid_from: new Date(Number(row.valid_from)),
+        valid_to: row.valid_to ? new Date(Number(row.valid_to)) : null,
         confidence: row.confidence,
-        last_updated: new Date(row.last_updated),
+        last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
