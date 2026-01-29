@@ -44,6 +44,10 @@ const migrations: Migration[] = [
       )`,
             `CREATE INDEX IF NOT EXISTS idx_stats_ts ON stats(ts)`,
             `CREATE INDEX IF NOT EXISTS idx_stats_type ON stats(type)`,
+            `ALTER TABLE memories ADD COLUMN agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE memories ADD COLUMN session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS idx_memories_session ON memories(session_id)`,
         ],
         postgres: [
             `ALTER TABLE {m} ADD COLUMN IF NOT EXISTS user_id TEXT`,
@@ -59,6 +63,10 @@ const migrations: Migration[] = [
         reflection_count INTEGER DEFAULT 0,
         created_at BIGINT, updated_at BIGINT
       )`,
+            `ALTER TABLE {m} ADD COLUMN IF NOT EXISTS agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE {m} ADD COLUMN IF NOT EXISTS session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS openmemory_memories_agent_idx ON {m}(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS openmemory_memories_session_idx ON {m}(session_id)`,
         ],
     },
 ];

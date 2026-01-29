@@ -128,7 +128,7 @@ export const run_reflection = async () => {
         console.error(
             `[REFLECT] Creating reflection: ${c.n} memories, salience=${s.toFixed(3)}, sector=${c.mem[0].primary_sector}`,
         );
-        await add_hsg_memory(txt, j(["reflect:auto"]), meta);
+        await add_hsg_memory(txt, j(["reflect:auto"]), meta, undefined, undefined, undefined);
         await mark(src);
         await boost(src);
         n++;

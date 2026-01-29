@@ -174,6 +174,8 @@ const create_auto_refl = async (
         j(refl_tags),
         refl_meta,
         p.user_id,
+        p.agent_id,
+        p.session_id,
     );
     return {
         id: res.id,
@@ -196,7 +198,7 @@ export async function store_node_mem(p: lgm_store_req) {
     const sec = resolve_sector(node);
     const tag_list = build_tags(p.tags, node, ns, p.graph_id);
     const meta = build_meta(p, sec, ns);
-    const res = await add_hsg_memory(p.content, j(tag_list), meta, p.user_id);
+    const res = await add_hsg_memory(p.content, j(tag_list), meta, p.user_id, p.agent_id, p.session_id);
     const stored = {
         id: res.id,
         node,

@@ -233,7 +233,9 @@ export abstract class base_source {
                     content.data || content.text || '',
                     { source: this.name, ...content.meta },
                     undefined,
-                    this.user_id
+                    this.user_id,
+                    undefined,
+                    undefined
                 );
                 ids.push(result.root_memory_id);
             } catch (e: any) {

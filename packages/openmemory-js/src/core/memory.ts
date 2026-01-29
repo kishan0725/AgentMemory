@@ -79,6 +79,8 @@ export interface StoreOptions {
     tags?: string[];
     metadata?: Record<string, any>;
     user_id?: string;
+    agent_id?: string;
+    session_id?: string;
 }
 
 export interface StoreResult {
@@ -105,13 +107,17 @@ export class Memory {
     async add(content: string, opts?: MemoryOptions) {
         const uid = opts?.user_id || this.default_user;
         const tags = opts?.tags || [];
+        const agent_id = opts?.agent_id;
+        const session_id = opts?.session_id;
         const meta = { ...opts };
         delete meta.user_id;
         delete meta.tags;
+        delete meta.agent_id;
+        delete meta.session_id;
 
         const tags_str = JSON.stringify(tags);
 
-        const res = await add_hsg_memory(content, tags_str, meta, uid ?? undefined);
+        const res = await add_hsg_memory(content, tags_str, meta, uid ?? undefined, agent_id, session_id);
         return res;
     }
 
@@ -600,7 +606,9 @@ export class Memory {
                 content,
                 JSON.stringify(tags),
                 meta,
-                uid ?? undefined
+                uid ?? undefined,
+                opts?.agent_id,
+                opts?.session_id
             );
 
             result.hsg = {
