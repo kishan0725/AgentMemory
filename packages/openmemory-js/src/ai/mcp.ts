@@ -400,7 +400,9 @@ export const create_mcp_srv = () => {
                         valid_from,
                         confidence,
                         metadata,
-                        u
+                        u,
+                        agent_id,
+                        session_id
                     );
 
                     temporal_results.push({

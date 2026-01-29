@@ -634,7 +634,9 @@ export class Memory {
                 valid_from: f.valid_from || new Date(),
                 confidence: f.confidence ?? 1.0,
                 metadata: meta,
-                user_id: uid ?? undefined
+                user_id: uid ?? undefined,
+                agent_id: opts?.agent_id,
+                session_id: opts?.session_id
             }));
 
             const fact_ids = await batch_insert_facts(factsToInsert);

@@ -4,7 +4,7 @@ import { get_subject_timeline, get_predicate_timeline, get_changes_in_window, co
 
 export const create_temporal_fact = async (req: any, res: any) => {
     try {
-        const { subject, predicate, object, valid_from, confidence, metadata } = req.body
+        const { subject, predicate, object, valid_from, confidence, metadata, user_id, agent_id, session_id } = req.body
 
         if (!subject || !predicate || !object) {
             return res.status(400).json({ error: 'Missing required fields: subject, predicate, object' })
@@ -13,7 +13,7 @@ export const create_temporal_fact = async (req: any, res: any) => {
         const valid_from_date = valid_from ? new Date(valid_from) : new Date()
         const conf = confidence !== undefined ? Math.max(0, Math.min(1, confidence)) : 1.0
 
-        const id = await insert_fact(subject, predicate, object, valid_from_date, conf, metadata)
+        const id = await insert_fact(subject, predicate, object, valid_from_date, conf, metadata, user_id, agent_id, session_id)
 
         res.json({
             id,
