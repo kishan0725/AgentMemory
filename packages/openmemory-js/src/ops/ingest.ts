@@ -39,6 +39,8 @@ const mkRoot = async (
     ex: ExtractionResult,
     meta?: Record<string, unknown>,
     user_id?: string | null,
+    agent_id?: string | null,
+    session_id?: string | null,
 ) => {
     const sum = txt.length > 500 ? txt.slice(0, 500) + "..." : txt;
     const cnt = `[Document: ${ex.metadata.content_type.toUpperCase()}]\n\n${sum}\n\n[Full content split across ${Math.ceil(txt.length / SEC)} sections]`;
@@ -48,7 +50,12 @@ const mkRoot = async (
     try {
         await q.ins_mem.run(
             id,
+            user_id || "anonymous",
+            agent_id || null,
+            session_id || null,
+            0, // segment
             cnt,
+            null, // simhash
             "reflective",
             j([]),
             j({
@@ -64,8 +71,10 @@ const mkRoot = async (
             1.0,
             0.1,
             1,
-            user_id || "anonymous",
-            null,
+            null, // mean_dim
+            null, // mean_vec
+            null, // compressed_vec
+            0, // feedback_score
         );
         await transaction.commit();
         return id;
@@ -83,6 +92,8 @@ const mkChild = async (
     rid: string,
     meta?: Record<string, unknown>,
     user_id?: string | null,
+    agent_id?: string | null,
+    session_id?: string | null,
 ) => {
     const r = await add_hsg_memory(
         txt,
@@ -95,6 +106,8 @@ const mkChild = async (
             parent_id: rid,
         },
         user_id || undefined,
+        agent_id || undefined,
+        session_id || undefined,
     );
     return r.id;
 };
@@ -126,6 +139,8 @@ export async function ingestDocument(
     meta?: Record<string, unknown>,
     cfg?: ingestion_cfg,
     user_id?: string | null,
+    agent_id?: string | null,
+    session_id?: string | null,
 ): Promise<IngestionResult> {
     const th = cfg?.lg_thresh || LG,
         sz = cfg?.sec_sz || SEC;
@@ -144,6 +159,8 @@ export async function ingestDocument(
                 ingested_at: now(),
             },
             user_id || undefined,
+            agent_id || undefined,
+            session_id || undefined,
         );
         return {
             root_memory_id: r.id,
@@ -162,7 +179,7 @@ export async function ingestDocument(
     const cids: string[] = [];
 
     try {
-        rid = await mkRoot(text, ex, meta, user_id);
+        rid = await mkRoot(text, ex, meta, user_id, agent_id, session_id);
         console.log(`[INGEST] Root memory created: ${rid}`);
         for (let i = 0; i < secs.length; i++) {
             try {
@@ -173,6 +190,8 @@ export async function ingestDocument(
                     rid,
                     meta,
                     user_id,
+                    agent_id,
+                    session_id,
                 );
                 cids.push(cid);
                 await link(rid, cid, i, user_id);
@@ -208,6 +227,8 @@ export async function ingestURL(
     meta?: Record<string, unknown>,
     cfg?: ingestion_cfg,
     user_id?: string | null,
+    agent_id?: string | null,
+    session_id?: string | null,
 ): Promise<IngestionResult> {
     const { extractURL } = await import("./extract");
     const ex = await extractURL(url);
@@ -226,6 +247,8 @@ export async function ingestURL(
                 ingested_at: now(),
             },
             user_id || undefined,
+            agent_id || undefined,
+            session_id || undefined,
         );
         return {
             root_memory_id: r.id,
@@ -244,7 +267,7 @@ export async function ingestURL(
     const cids: string[] = [];
 
     try {
-        rid = await mkRoot(ex.text, ex, { ...meta, source_url: url }, user_id);
+        rid = await mkRoot(ex.text, ex, { ...meta, source_url: url }, user_id, agent_id, session_id);
         console.log(`[INGEST] Root memory for URL: ${rid}`);
         for (let i = 0; i < secs.length; i++) {
             try {
@@ -255,6 +278,8 @@ export async function ingestURL(
                     rid,
                     { ...meta, source_url: url },
                     user_id,
+                    agent_id,
+                    session_id,
                 );
                 cids.push(cid);
                 await link(rid, cid, i, user_id);

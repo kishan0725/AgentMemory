@@ -10,7 +10,9 @@ export const query_facts_at_time = async (
     object?: string,
     at: Date = new Date(),
     min_confidence: number = 0.1,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<TemporalFact[]> => {
     const timestamp = at.getTime()
     const conditions: string[] = []
@@ -23,6 +25,16 @@ export const query_facts_at_time = async (
     if (user_id) {
         conditions.push('user_id = ?')
         params.push(user_id)
+    }
+
+    if (agent_id) {
+        conditions.push('agent_id = ?')
+        params.push(agent_id)
+    }
+
+    if (session_id) {
+        conditions.push('session_id = ?')
+        params.push(session_id)
     }
 
     if (subject) {
@@ -46,7 +58,7 @@ export const query_facts_at_time = async (
     }
 
     const sql = `
-        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id
+        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id
         FROM temporal_facts
         WHERE ${conditions.join(' AND ')}
         ORDER BY confidence DESC, valid_from DESC
@@ -64,6 +76,8 @@ export const query_facts_at_time = async (
         confidence: row.confidence,
         last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
+        agent_id: row.agent_id,
+        session_id: row.session_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
 }
@@ -72,7 +86,9 @@ export const query_facts_at_time = async (
 export const get_current_fact = async (
     subject: string,
     predicate: string,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<TemporalFact | null> => {
     const conditions = ['subject = ?', 'predicate = ?', 'valid_to IS NULL']
     const params: any[] = [subject, predicate]
@@ -82,8 +98,18 @@ export const get_current_fact = async (
         params.push(user_id)
     }
 
+    if (agent_id) {
+        conditions.push('agent_id = ?')
+        params.push(agent_id)
+    }
+
+    if (session_id) {
+        conditions.push('session_id = ?')
+        params.push(session_id)
+    }
+
     const row = await get_async(`
-        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id
+        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id
         FROM temporal_facts
         WHERE ${conditions.join(' AND ')}
         ORDER BY valid_from DESC
@@ -103,6 +129,8 @@ export const get_current_fact = async (
         confidence: row.confidence,
         last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
+        agent_id: row.agent_id,
+        session_id: row.session_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }
 }
@@ -114,7 +142,9 @@ export const query_facts_in_range = async (
     from?: Date,
     to?: Date,
     min_confidence: number = 0.1,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<TemporalFact[]> => {
     const conditions: string[] = []
     const params: any[] = []
@@ -137,6 +167,16 @@ export const query_facts_in_range = async (
         params.push(user_id)
     }
 
+    if (agent_id) {
+        conditions.push('agent_id = ?')
+        params.push(agent_id)
+    }
+
+    if (session_id) {
+        conditions.push('session_id = ?')
+        params.push(session_id)
+    }
+
     if (subject) {
         conditions.push('subject = ?')
         params.push(subject)
@@ -154,7 +194,7 @@ export const query_facts_in_range = async (
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
     const sql = `
-        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id
+        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id
         FROM temporal_facts
         ${where}
         ORDER BY valid_from DESC
@@ -172,6 +212,8 @@ export const query_facts_in_range = async (
         confidence: row.confidence,
         last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
+        agent_id: row.agent_id,
+        session_id: row.session_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
 }
@@ -181,7 +223,9 @@ export const find_conflicting_facts = async (
     subject: string,
     predicate: string,
     at?: Date,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<TemporalFact[]> => {
     const timestamp = at ? at.getTime() : Date.now()
     const conditions = [
@@ -196,8 +240,18 @@ export const find_conflicting_facts = async (
         params.push(user_id)
     }
 
+    if (agent_id) {
+        conditions.push('agent_id = ?')
+        params.push(agent_id)
+    }
+
+    if (session_id) {
+        conditions.push('session_id = ?')
+        params.push(session_id)
+    }
+
     const rows = await all_async(`
-        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id
+        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id
         FROM temporal_facts
         WHERE ${conditions.join(' AND ')}
         ORDER BY confidence DESC
@@ -214,6 +268,8 @@ export const find_conflicting_facts = async (
         confidence: row.confidence,
         last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
+        agent_id: row.agent_id,
+        session_id: row.session_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
 }
@@ -223,7 +279,9 @@ export const get_facts_by_subject = async (
     subject: string,
     at?: Date,
     include_historical: boolean = false,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<TemporalFact[]> => {
     let sql: string
     let params: any[]
@@ -231,14 +289,24 @@ export const get_facts_by_subject = async (
     if (include_historical) {
         const conditions = ['subject = ?']
         params = [subject]
-        
+
         if (user_id) {
             conditions.push('user_id = ?')
             params.push(user_id)
         }
-        
+
+        if (agent_id) {
+            conditions.push('agent_id = ?')
+            params.push(agent_id)
+        }
+
+        if (session_id) {
+            conditions.push('session_id = ?')
+            params.push(session_id)
+        }
+
         sql = `
-            SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id
+            SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id
             FROM temporal_facts
             WHERE ${conditions.join(' AND ')}
             ORDER BY predicate ASC, valid_from DESC
@@ -250,14 +318,24 @@ export const get_facts_by_subject = async (
             '(valid_from <= ? AND (valid_to IS NULL OR valid_to >= ?))'
         ]
         params = [subject, timestamp, timestamp]
-        
+
         if (user_id) {
             conditions.push('user_id = ?')
             params.push(user_id)
         }
-        
+
+        if (agent_id) {
+            conditions.push('agent_id = ?')
+            params.push(agent_id)
+        }
+
+        if (session_id) {
+            conditions.push('session_id = ?')
+            params.push(session_id)
+        }
+
         sql = `
-            SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id
+            SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id
             FROM temporal_facts
             WHERE ${conditions.join(' AND ')}
             ORDER BY predicate ASC, confidence DESC
@@ -276,6 +354,8 @@ export const get_facts_by_subject = async (
         confidence: row.confidence,
         last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
+        agent_id: row.agent_id,
+        session_id: row.session_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
 }
@@ -285,7 +365,9 @@ export const search_facts = async (
     pattern: string,
     field: 'subject' | 'predicate' | 'object' = 'subject',
     at?: Date,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<TemporalFact[]> => {
     const timestamp = at ? at.getTime() : Date.now()
     const search_pattern = `%${pattern}%`
@@ -300,8 +382,18 @@ export const search_facts = async (
         params.push(user_id)
     }
 
+    if (agent_id) {
+        conditions.push('agent_id = ?')
+        params.push(agent_id)
+    }
+
+    if (session_id) {
+        conditions.push('session_id = ?')
+        params.push(session_id)
+    }
+
     const sql = `
-        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id
+        SELECT id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id
         FROM temporal_facts
         WHERE ${conditions.join(' AND ')}
         ORDER BY confidence DESC, valid_from DESC
@@ -320,6 +412,8 @@ export const search_facts = async (
         confidence: row.confidence,
         last_updated: new Date(Number(row.last_updated)),
         user_id: row.user_id,
+        agent_id: row.agent_id,
+        session_id: row.session_id,
         metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
 }
@@ -329,7 +423,9 @@ export const get_related_facts = async (
     fact_id: string,
     relation_type?: string,
     at?: Date,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<Array<{ fact: TemporalFact; relation: string; weight: number }>> => {
     const timestamp = at ? at.getTime() : Date.now()
     const conditions = ['(e.valid_from <= ? AND (e.valid_to IS NULL OR e.valid_to >= ?))']
@@ -345,6 +441,36 @@ export const get_related_facts = async (
         params.push(user_id)
     }
 
+    if (agent_id) {
+        conditions.push('e.agent_id = ?')
+        params.push(agent_id)
+    }
+
+    if (session_id) {
+        conditions.push('e.session_id = ?')
+        params.push(session_id)
+    }
+
+    const factConditions: string[] = []
+    const factParams: any[] = []
+
+    if (user_id) {
+        factConditions.push('f.user_id = ?')
+        factParams.push(user_id)
+    }
+
+    if (agent_id) {
+        factConditions.push('f.agent_id = ?')
+        factParams.push(agent_id)
+    }
+
+    if (session_id) {
+        factConditions.push('f.session_id = ?')
+        factParams.push(session_id)
+    }
+
+    const factWhere = factConditions.length > 0 ? `AND ${factConditions.join(' AND ')}` : ''
+
     const sql = `
         SELECT f.*, e.relation_type, e.weight, e.user_id as edge_user_id
         FROM temporal_edges e
@@ -352,13 +478,11 @@ export const get_related_facts = async (
         WHERE e.source_id = ?
         AND ${conditions.join(' AND ')}
         AND (f.valid_from <= ? AND (f.valid_to IS NULL OR f.valid_to >= ?))
-        ${user_id ? 'AND f.user_id = ?' : ''}
+        ${factWhere}
         ORDER BY e.weight DESC, f.confidence DESC
     `
 
-    const queryParams = user_id 
-        ? [fact_id, ...params, timestamp, timestamp, user_id]
-        : [fact_id, ...params, timestamp, timestamp]
+    const queryParams = [fact_id, ...params, timestamp, timestamp, ...factParams]
 
     const rows = await all_async(sql, queryParams)
     return rows.map(row => ({
@@ -372,6 +496,8 @@ export const get_related_facts = async (
             confidence: row.confidence,
             last_updated: new Date(row.last_updated),
             user_id: row.user_id,
+            agent_id: row.agent_id,
+            session_id: row.session_id,
             metadata: row.metadata ? JSON.parse(row.metadata) : undefined
         },
         relation: row.relation_type,

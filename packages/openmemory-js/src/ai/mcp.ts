@@ -330,8 +330,24 @@ export const create_mcp_srv = () => {
                 .describe(
                     "Associate the memory with a specific user identifier",
                 ),
+            agent_id: z
+                .string()
+                .trim()
+                .min(1)
+                .optional()
+                .describe(
+                    "Associate the memory with a specific agent identifier",
+                ),
+            session_id: z
+                .string()
+                .trim()
+                .min(1)
+                .optional()
+                .describe(
+                    "Associate the memory with a specific session identifier",
+                ),
         },
-        async ({ content, type = "contextual", facts, tags, metadata, user_id }) => {
+        async ({ content, type = "contextual", facts, tags, metadata, user_id, agent_id, session_id }) => {
             const u = uid(user_id);
             const results: any = { type };
 
@@ -352,6 +368,8 @@ export const create_mcp_srv = () => {
                     j(tags || []),
                     metadata,
                     u,
+                    agent_id,
+                    session_id,
                 );
                 results.hsg = {
                     id: res.id,
@@ -382,7 +400,9 @@ export const create_mcp_srv = () => {
                         valid_from,
                         confidence,
                         metadata,
-                        u
+                        u,
+                        agent_id,
+                        session_id
                     );
 
                     temporal_results.push({

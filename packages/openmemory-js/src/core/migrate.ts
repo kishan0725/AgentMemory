@@ -44,6 +44,18 @@ const migrations: Migration[] = [
       )`,
             `CREATE INDEX IF NOT EXISTS idx_stats_ts ON stats(ts)`,
             `CREATE INDEX IF NOT EXISTS idx_stats_type ON stats(type)`,
+            `ALTER TABLE memories ADD COLUMN agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE memories ADD COLUMN session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS idx_memories_session ON memories(session_id)`,
+            `ALTER TABLE temporal_facts ADD COLUMN agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE temporal_facts ADD COLUMN session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS idx_temporal_facts_agent ON temporal_facts(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS idx_temporal_facts_session ON temporal_facts(session_id)`,
+            `ALTER TABLE temporal_edges ADD COLUMN agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE temporal_edges ADD COLUMN session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS idx_temporal_edges_agent ON temporal_edges(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS idx_temporal_edges_session ON temporal_edges(session_id)`,
         ],
         postgres: [
             `ALTER TABLE {m} ADD COLUMN IF NOT EXISTS user_id TEXT`,
@@ -59,6 +71,18 @@ const migrations: Migration[] = [
         reflection_count INTEGER DEFAULT 0,
         created_at BIGINT, updated_at BIGINT
       )`,
+            `ALTER TABLE {m} ADD COLUMN IF NOT EXISTS agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE {m} ADD COLUMN IF NOT EXISTS session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS openmemory_memories_agent_idx ON {m}(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS openmemory_memories_session_idx ON {m}(session_id)`,
+            `ALTER TABLE {tf} ADD COLUMN IF NOT EXISTS agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE {tf} ADD COLUMN IF NOT EXISTS session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS openmemory_temporal_facts_agent_idx ON {tf}(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS openmemory_temporal_facts_session_idx ON {tf}(session_id)`,
+            `ALTER TABLE {te} ADD COLUMN IF NOT EXISTS agent_id TEXT DEFAULT NULL`,
+            `ALTER TABLE {te} ADD COLUMN IF NOT EXISTS session_id TEXT DEFAULT NULL`,
+            `CREATE INDEX IF NOT EXISTS openmemory_temporal_edges_agent_idx ON {te}(agent_id)`,
+            `CREATE INDEX IF NOT EXISTS openmemory_temporal_edges_session_idx ON {te}(session_id)`,
         ],
     },
 ];
@@ -228,6 +252,8 @@ async function run_pg_migration(pool: Pool, m: Migration): Promise<void> {
         "{v}": `"${sc}"."${process.env.OM_VECTOR_TABLE || "openmemory_vectors"}"`,
         "{w}": `"${sc}"."openmemory_waypoints"`,
         "{u}": `"${sc}"."openmemory_users"`,
+        "{tf}": `"${sc}"."temporal_facts"`,
+        "{te}": `"${sc}"."temporal_edges"`,
     };
 
     for (let sql of m.postgres) {

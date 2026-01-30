@@ -17,14 +17,14 @@ export class PgVectorStore implements VectorStore {
         this.table = tableName;
     }
 
-    async storeVector(id: string, sector: string, vector: number[], dim: number, user_id?: string): Promise<void> {
+    async storeVector(id: string, sector: string, vector: number[], dim: number, user_id?: string, agent_id?: string, session_id?: string): Promise<void> {
         console.error(`[PgVector] Storing ID: ${id}, Sector: ${sector}, Dim: ${dim}`);
-        
+
         // Convert number array to PostgreSQL vector format
         const vectorStr = `[${vector.join(',')}]`;
-        
-        const sql = `insert into ${this.table}(id,sector,user_id,v,dim) values($1,$2,$3,$4::vector,$5) on conflict(id,sector) do update set user_id=excluded.user_id,v=excluded.v,dim=excluded.dim`;
-        await this.db.run_async(sql, [id, sector, user_id || "anonymous", vectorStr, dim]);
+
+        const sql = `insert into ${this.table}(id,sector,user_id,agent_id,session_id,v,dim) values($1,$2,$3,$4,$5,$6::vector,$7) on conflict(id,sector) do update set user_id=excluded.user_id,agent_id=excluded.agent_id,session_id=excluded.session_id,v=excluded.v,dim=excluded.dim`;
+        await this.db.run_async(sql, [id, sector, user_id || "anonymous", agent_id || null, session_id || null, vectorStr, dim]);
     }
 
     async deleteVector(id: string, sector: string): Promise<void> {
@@ -35,40 +35,46 @@ export class PgVectorStore implements VectorStore {
         await this.db.run_async(`delete from ${this.table} where id=$1`, [id]);
     }
 
-    async searchSimilar(sector: string, queryVec: number[], topK: number, user_id?: string): Promise<Array<{ id: string; score: number }>> {
+    async searchSimilar(sector: string, queryVec: number[], topK: number, user_id?: string, agent_id?: string, session_id?: string): Promise<Array<{ id: string; score: number }>> {
         // Convert query vector to PostgreSQL vector format
         const vectorStr = `[${queryVec.join(',')}]`;
-        
-        // Build query with optional user_id filtering
-        let sql: string;
-        let params: any[];
-        
+
+        // Build query with optional filtering
+        let conditions = [`sector = $2`];
+        let params: any[] = [vectorStr, sector];
+        let paramIndex = 3;
+
         if (user_id) {
-            // Multi-user: Filter by user_id at database level
-            sql = `
-                select id, 1 - (v <=> $1::vector) as score
-                from ${this.table}
-                where sector = $2 and user_id = $3
-                order by v <=> $1::vector
-                limit $4
-            `;
-            params = [vectorStr, sector, user_id, topK];
-            console.error(`[PgVector] Search Sector: ${sector}, User: ${user_id}, TopK: ${topK}`);
-        } else {
-            // Single-user or legacy mode: Search all in sector
-            sql = `
-                select id, 1 - (v <=> $1::vector) as score
-                from ${this.table}
-                where sector = $2
-                order by v <=> $1::vector
-                limit $3
-            `;
-            params = [vectorStr, sector, topK];
-            console.error(`[PgVector] Search Sector: ${sector}, TopK: ${topK}`);
+            conditions.push(`user_id = $${paramIndex}`);
+            params.push(user_id);
+            paramIndex++;
         }
-        
+
+        if (agent_id) {
+            conditions.push(`agent_id = $${paramIndex}`);
+            params.push(agent_id);
+            paramIndex++;
+        }
+
+        if (session_id) {
+            conditions.push(`session_id = $${paramIndex}`);
+            params.push(session_id);
+            paramIndex++;
+        }
+
+        const sql = `
+            select id, 1 - (v <=> $1::vector) as score
+            from ${this.table}
+            where ${conditions.join(' and ')}
+            order by v <=> $1::vector
+            limit $${paramIndex}
+        `;
+        params.push(topK);
+
+        console.error(`[PgVector] Search Sector: ${sector}, User: ${user_id || 'all'}, Agent: ${agent_id || 'all'}, Session: ${session_id || 'all'}, TopK: ${topK}`);
+
         const rows = await this.db.all_async(sql, params);
-        
+
         return rows.map(row => ({
             id: row.id,
             score: row.score

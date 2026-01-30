@@ -154,20 +154,20 @@ if (is_pg) {
             } else throw err;
         }
         await pg.query(
-            `create table if not exists ${m}(id uuid primary key,user_id text,segment integer default 0,content text not null,simhash text,primary_sector text not null,tags text,meta text,created_at bigint,updated_at bigint,last_seen_at bigint,salience double precision,decay_lambda double precision,version integer default 1,mean_dim integer,mean_vec bytea,compressed_vec bytea,feedback_score double precision default 0)`,
+            `create table if not exists ${m}(id uuid primary key,user_id text,agent_id text,session_id text,segment integer default 0,content text not null,simhash text,primary_sector text not null,tags text,meta text,created_at bigint,updated_at bigint,last_seen_at bigint,salience double precision,decay_lambda double precision,version integer default 1,mean_dim integer,mean_vec bytea,compressed_vec bytea,feedback_score double precision default 0)`,
         );
         
         if (env.use_pgvector) {
             await pg.query(`CREATE EXTENSION IF NOT EXISTS vector`);
             await pg.query(
-                `create table if not exists ${v}(id uuid,sector text,user_id text,v vector(1024),dim integer not null,primary key(id,sector))`,
+                `create table if not exists ${v}(id uuid,sector text,user_id text,agent_id text,session_id text,v vector(1024),dim integer not null,primary key(id,sector))`,
             );
             await pg.query(
                 `create index if not exists openmemory_vectors_hnsw_idx on ${v} using hnsw (v vector_cosine_ops) with (m = 16, ef_construction = 64)`,
             );
         } else {
             await pg.query(
-                `create table if not exists ${v}(id uuid,sector text,user_id text,v bytea,dim integer not null,primary key(id,sector))`,
+                `create table if not exists ${v}(id uuid,sector text,user_id text,agent_id text,session_id text,v bytea,dim integer not null,primary key(id,sector))`,
             );
         }
         await pg.query(
@@ -183,10 +183,10 @@ if (is_pg) {
             `create table if not exists "${sc}"."stats"(id serial primary key,type text not null,count integer default 1,ts bigint not null)`,
         );
         await pg.query(
-            `create table if not exists "${sc}"."temporal_facts"(id uuid primary key,subject text not null,predicate text not null,object text not null,valid_from bigint not null,valid_to bigint,confidence double precision not null check(confidence >= 0 and confidence <= 1),last_updated bigint not null,metadata text,user_id text)`,
+            `create table if not exists "${sc}"."temporal_facts"(id uuid primary key,subject text not null,predicate text not null,object text not null,valid_from bigint not null,valid_to bigint,confidence double precision not null check(confidence >= 0 and confidence <= 1),last_updated bigint not null,metadata text,user_id text,agent_id text,session_id text)`,
         );
         await pg.query(
-            `create table if not exists "${sc}"."temporal_edges"(id uuid primary key,source_id uuid not null,target_id uuid not null,relation_type text not null,valid_from bigint not null,valid_to bigint,weight double precision not null,metadata text,user_id text,foreign key(source_id) references "${sc}"."temporal_facts"(id),foreign key(target_id) references "${sc}"."temporal_facts"(id))`,
+            `create table if not exists "${sc}"."temporal_edges"(id uuid primary key,source_id uuid not null,target_id uuid not null,relation_type text not null,valid_from bigint not null,valid_to bigint,weight double precision not null,metadata text,user_id text,agent_id text,session_id text,foreign key(source_id) references "${sc}"."temporal_facts"(id),foreign key(target_id) references "${sc}"."temporal_facts"(id))`,
         );
         await pg.query(
             `create index if not exists temporal_facts_subject_idx on "${sc}"."temporal_facts"(subject)`,
@@ -232,6 +232,18 @@ if (is_pg) {
         );
         await pg.query(
             `create index if not exists openmemory_memories_user_idx on ${m}(user_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_memories_agent_idx on ${m}(agent_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_memories_session_idx on ${m}(session_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_temporal_facts_agent_idx on "${sc}"."temporal_facts"(agent_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_temporal_facts_session_idx on "${sc}"."temporal_facts"(session_id)`,
         );
         await pg.query(
             `create index if not exists openmemory_vectors_user_idx on ${v}(user_id)`,
@@ -281,7 +293,7 @@ if (is_pg) {
         ins_mem: {
             run: (...p) =>
                 run_async(
-                    `insert into ${m}(id,user_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) on conflict(id) do update set user_id=excluded.user_id,segment=excluded.segment,content=excluded.content,simhash=excluded.simhash,primary_sector=excluded.primary_sector,tags=excluded.tags,meta=excluded.meta,created_at=excluded.created_at,updated_at=excluded.updated_at,last_seen_at=excluded.last_seen_at,salience=excluded.salience,decay_lambda=excluded.decay_lambda,version=excluded.version,mean_dim=excluded.mean_dim,mean_vec=excluded.mean_vec,compressed_vec=excluded.compressed_vec,feedback_score=excluded.feedback_score`,
+                    `insert into ${m}(id,user_id,agent_id,session_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) on conflict(id) do update set user_id=excluded.user_id,agent_id=excluded.agent_id,session_id=excluded.session_id,segment=excluded.segment,content=excluded.content,simhash=excluded.simhash,primary_sector=excluded.primary_sector,tags=excluded.tags,meta=excluded.meta,created_at=excluded.created_at,updated_at=excluded.updated_at,last_seen_at=excluded.last_seen_at,salience=excluded.salience,decay_lambda=excluded.decay_lambda,version=excluded.version,mean_dim=excluded.mean_dim,mean_vec=excluded.mean_vec,compressed_vec=excluded.compressed_vec,feedback_score=excluded.feedback_score`,
                     p,
                 ),
         },
@@ -497,10 +509,10 @@ if (is_pg) {
         db.run("PRAGMA locking_mode=NORMAL");
         db.run("PRAGMA busy_timeout=5000");
         db.run(
-            `create table if not exists memories(id text primary key,user_id text,segment integer default 0,content text not null,simhash text,primary_sector text not null,tags text,meta text,created_at integer,updated_at integer,last_seen_at integer,salience real,decay_lambda real,version integer default 1,mean_dim integer,mean_vec blob,compressed_vec blob,feedback_score real default 0)`,
+            `create table if not exists memories(id text primary key,user_id text,agent_id text,session_id text,segment integer default 0,content text not null,simhash text,primary_sector text not null,tags text,meta text,created_at integer,updated_at integer,last_seen_at integer,salience real,decay_lambda real,version integer default 1,mean_dim integer,mean_vec blob,compressed_vec blob,feedback_score real default 0)`,
         );
         db.run(
-            `create table if not exists ${sqlite_vector_table}(id text not null,sector text not null,user_id text,v blob not null,dim integer not null,primary key(id,sector))`,
+            `create table if not exists ${sqlite_vector_table}(id text not null,sector text not null,user_id text,agent_id text,session_id text,v blob not null,dim integer not null,primary key(id,sector))`,
         );
         db.run(
             `create table if not exists waypoints(src_id text,dst_id text not null,user_id text,weight real not null,created_at integer,updated_at integer,primary key(src_id,user_id))`,
@@ -515,10 +527,10 @@ if (is_pg) {
             `create table if not exists stats(id integer primary key autoincrement,type text not null,count integer default 1,ts integer not null)`,
         );
         db.run(
-            `create table if not exists temporal_facts(id text primary key,subject text not null,predicate text not null,object text not null,valid_from integer not null,valid_to integer,confidence real not null check(confidence >= 0 and confidence <= 1),last_updated integer not null,metadata text,user_id text)`,
+            `create table if not exists temporal_facts(id text primary key,subject text not null,predicate text not null,object text not null,valid_from integer not null,valid_to integer,confidence real not null check(confidence >= 0 and confidence <= 1),last_updated integer not null,metadata text,user_id text,agent_id text,session_id text)`,
         );
         db.run(
-            `create table if not exists temporal_edges(id text primary key,source_id text not null,target_id text not null,relation_type text not null,valid_from integer not null,valid_to integer,weight real not null,metadata text,user_id text,foreign key(source_id) references temporal_facts(id),foreign key(target_id) references temporal_facts(id))`,
+            `create table if not exists temporal_edges(id text primary key,source_id text not null,target_id text not null,relation_type text not null,valid_from integer not null,valid_to integer,weight real not null,metadata text,user_id text,agent_id text,session_id text,foreign key(source_id) references temporal_facts(id),foreign key(target_id) references temporal_facts(id))`,
         );
         db.run(
             "create index if not exists idx_memories_sector on memories(primary_sector)",
@@ -534,6 +546,12 @@ if (is_pg) {
         );
         db.run(
             "create index if not exists idx_memories_user on memories(user_id)",
+        );
+        db.run(
+            "create index if not exists idx_memories_agent on memories(agent_id)",
+        );
+        db.run(
+            "create index if not exists idx_memories_session on memories(session_id)",
         );
         db.run(
             `create index if not exists idx_vectors_user on ${sqlite_vector_table}(user_id)`,
@@ -566,6 +584,12 @@ if (is_pg) {
         );
         db.run(
             "create index if not exists idx_temporal_user_subject_pred on temporal_facts(user_id,subject,predicate,valid_from,valid_to)",
+        );
+        db.run(
+            "create index if not exists idx_temporal_agent on temporal_facts(agent_id)",
+        );
+        db.run(
+            "create index if not exists idx_temporal_session on temporal_facts(session_id)",
         );
         db.run(
             "create index if not exists idx_temporal_object on temporal_facts(object)",
@@ -679,7 +703,7 @@ if (is_pg) {
         ins_mem: {
             run: (...p) =>
                 exec(
-                    "insert into memories(id,user_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "insert into memories(id,user_id,agent_id,session_id,segment,content,simhash,primary_sector,tags,meta,created_at,updated_at,last_seen_at,salience,decay_lambda,version,mean_dim,mean_vec,compressed_vec,feedback_score) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     p,
                 ),
         },

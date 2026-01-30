@@ -750,7 +750,7 @@ const get_sal = async (id: string, def_sal: number): Promise<number> => {
 export async function hsg_query(
     qt: string,
     k = 10,
-    f?: { sectors?: string[]; minSalience?: number; user_id?: string; startTime?: number; endTime?: number },
+    f?: { sectors?: string[]; minSalience?: number; user_id?: string; agent_id?: string; session_id?: string; startTime?: number; endTime?: number },
 ): Promise<hsg_q_result[]> {
 
 
@@ -800,7 +800,7 @@ export async function hsg_query(
         > = {};
         for (const s of ss) {
             const qv = qe[s];
-            const results = await vector_store.searchSimilar(s, qv, k * 3, f?.user_id);
+            const results = await vector_store.searchSimilar(s, qv, k * 3, f?.user_id, f?.agent_id, f?.session_id);
             sr[s] = results.map(r => ({ id: r.id, similarity: r.score }));
         }
         const all_sims = Object.values(sr).flatMap((r) =>
@@ -843,6 +843,8 @@ export async function hsg_query(
             const m = await q.get_mem.get(mid);
             if (!m || (f?.minSalience && m.salience < f.minSalience)) continue;
             if (f?.user_id && m.user_id !== f.user_id) continue;
+            if (f?.agent_id && m.agent_id !== f.agent_id) continue;
+            if (f?.session_id && m.session_id !== f.session_id) continue;
             if (f?.startTime && m.created_at < f.startTime) continue;
             if (f?.endTime && m.created_at > f.endTime) continue;
             const mvf = await calc_multi_vec_fusion_score(mid, qe, w);
@@ -1041,6 +1043,8 @@ export async function add_hsg_memory(
     tags?: string,
     metadata?: any,
     user_id?: string,
+    agent_id?: string,
+    session_id?: string,
 ): Promise<{
     id: string;
     primary_sector: string;
@@ -1099,6 +1103,8 @@ export async function add_hsg_memory(
         await q.ins_mem.run(
             id,
             user_id || "anonymous",
+            agent_id || null,
+            session_id || null,
             cur_seg,
             stored_content,
             simhash,
@@ -1129,6 +1135,8 @@ export async function add_hsg_memory(
                 result.vector,
                 result.dim,
                 user_id || "anonymous",
+                agent_id,
+                session_id,
             );
         }
         const mean_vec = calc_mean_vec(emb_res, all_sectors);
@@ -1215,6 +1223,8 @@ export async function update_memory(
                     result.vector,
                     result.dim,
                     mem.user_id || "anonymous",
+                    mem.agent_id,
+                    mem.session_id,
                 );
             }
             const mean_vec = calc_mean_vec(emb_res, all_sectors);

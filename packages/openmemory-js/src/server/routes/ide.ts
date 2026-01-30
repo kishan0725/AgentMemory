@@ -10,6 +10,7 @@ export function ide(app: any) {
             const file_path = req.body.file_path || "unknown";
             const content = req.body.content || "";
             const session_id = req.body.session_id || "default";
+            const agent_id = req.body.agent_id;
             const metadata = req.body.metadata || {};
             const user_id = req.body.user_id || "anonymous";
 
@@ -45,6 +46,8 @@ export function ide(app: any) {
                 undefined,
                 full_metadata,
                 user_id,
+                agent_id,
+                session_id,
             );
 
 
@@ -124,6 +127,7 @@ export function ide(app: any) {
     app.post("/api/ide/session/start", async (req: any, res: any) => {
         try {
             const user_id = req.body.user_id || "anonymous";
+            const agent_id = req.body.agent_id;
             const project_name = req.body.project_name || "unknown";
             const ide_name = req.body.ide_name || "unknown";
 
@@ -142,7 +146,7 @@ export function ide(app: any) {
                 ide_mode: true,
             };
 
-            const result = await add_hsg_memory(content, undefined, metadata, user_id);
+            const result = await add_hsg_memory(content, undefined, metadata, user_id, agent_id, session_id);
 
             if (user_id && user_id !== "anonymous") {
                 update_user_summary(user_id).catch(err =>
@@ -169,6 +173,7 @@ export function ide(app: any) {
         try {
             const session_id = req.body.session_id;
             const user_id = req.body.user_id || "anonymous";
+            const agent_id = req.body.agent_id;
 
             if (!session_id)
                 return res.status(400).json({ err: "session_id_required" });
@@ -216,7 +221,7 @@ export function ide(app: any) {
                 ide_mode: true,
             };
 
-            const result = await add_hsg_memory(summary, undefined, metadata, user_id);
+            const result = await add_hsg_memory(summary, undefined, metadata, user_id, agent_id, session_id);
 
             if (user_id && user_id !== "anonymous") {
                 update_user_summary(user_id).catch(err =>

@@ -14,11 +14,11 @@ export class PostgresVectorStore implements VectorStore {
         this.table = tableName;
     }
 
-    async storeVector(id: string, sector: string, vector: number[], dim: number, user_id?: string): Promise<void> {
+    async storeVector(id: string, sector: string, vector: number[], dim: number, user_id?: string, agent_id?: string, session_id?: string): Promise<void> {
         console.error(`[Vector] Storing ID: ${id}, Sector: ${sector}, Dim: ${dim}`);
         const v = vectorToBuffer(vector);
-        const sql = `insert into ${this.table}(id,sector,user_id,v,dim) values($1,$2,$3,$4,$5) on conflict(id,sector) do update set user_id=excluded.user_id,v=excluded.v,dim=excluded.dim`;
-        await this.db.run_async(sql, [id, sector, user_id || "anonymous", v, dim]);
+        const sql = `insert into ${this.table}(id,sector,user_id,agent_id,session_id,v,dim) values($1,$2,$3,$4,$5,$6,$7) on conflict(id,sector) do update set user_id=excluded.user_id,agent_id=excluded.agent_id,session_id=excluded.session_id,v=excluded.v,dim=excluded.dim`;
+        await this.db.run_async(sql, [id, sector, user_id || "anonymous", agent_id || null, session_id || null, v, dim]);
     }
 
     async deleteVector(id: string, sector: string): Promise<void> {
@@ -29,23 +29,34 @@ export class PostgresVectorStore implements VectorStore {
         await this.db.run_async(`delete from ${this.table} where id=$1`, [id]);
     }
 
-    async searchSimilar(sector: string, queryVec: number[], topK: number, user_id?: string): Promise<Array<{ id: string; score: number }>> {
-        let sql: string;
-        let params: any[];
-        
+    async searchSimilar(sector: string, queryVec: number[], topK: number, user_id?: string, agent_id?: string, session_id?: string): Promise<Array<{ id: string; score: number }>> {
+        let sql = `select id,v,dim from ${this.table} where sector=$1`;
+        let params: any[] = [sector];
+        let paramIndex = 2;
+
         if (user_id) {
-            sql = `select id,v,dim from ${this.table} where sector=$1 and user_id=$2`;
-            params = [sector, user_id];
-            console.error(`[Vector] Search Sector: ${sector}, User: ${user_id}`);
-        } else {
-            sql = `select id,v,dim from ${this.table} where sector=$1`;
-            params = [sector];
-            console.error(`[Vector] Search Sector: ${sector}, All users`);
+            sql += ` and user_id=$${paramIndex}`;
+            params.push(user_id);
+            paramIndex++;
         }
-        
+
+        if (agent_id) {
+            sql += ` and agent_id=$${paramIndex}`;
+            params.push(agent_id);
+            paramIndex++;
+        }
+
+        if (session_id) {
+            sql += ` and session_id=$${paramIndex}`;
+            params.push(session_id);
+            paramIndex++;
+        }
+
+        console.error(`[Vector] Search Sector: ${sector}, User: ${user_id || 'all'}, Agent: ${agent_id || 'all'}, Session: ${session_id || 'all'}`);
+
         const rows = await this.db.all_async(sql, params);
         console.error(`[Vector] Found ${rows.length} vectors to scan`);
-        
+
         const sims: Array<{ id: string; score: number }> = [];
         for (const row of rows) {
             const vec = bufferToVector(row.v);

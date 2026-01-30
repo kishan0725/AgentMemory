@@ -9,7 +9,9 @@ export const insert_fact = async (
     valid_from: Date = new Date(),
     confidence: number = 1.0,
     metadata?: Record<string, any>,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<string> => {
     const id = randomUUID()
     const now = Date.now()
@@ -30,9 +32,9 @@ export const insert_fact = async (
     }
 
     await run_async(`
-        INSERT INTO temporal_facts (id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id)
-        VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
-    `, [id, subject, predicate, object, valid_from_ts, confidence, now, metadata ? JSON.stringify(metadata) : null, uid])
+        INSERT INTO temporal_facts (id, subject, predicate, object, valid_from, valid_to, confidence, last_updated, metadata, user_id, agent_id, session_id)
+        VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
+    `, [id, subject, predicate, object, valid_from_ts, confidence, now, metadata ? JSON.stringify(metadata) : null, uid, agent_id || null, session_id || null])
 
     console.error(`[TEMPORAL] Inserted fact for user ${uid}: ${subject} ${predicate} ${object} (from ${valid_from.toISOString()}, confidence=${confidence})`)
     return id
@@ -80,16 +82,18 @@ export const insert_edge = async (
     valid_from: Date = new Date(),
     weight: number = 1.0,
     metadata?: Record<string, any>,
-    user_id?: string
+    user_id?: string,
+    agent_id?: string,
+    session_id?: string
 ): Promise<string> => {
     const id = randomUUID()
     const valid_from_ts = valid_from.getTime()
     const uid = user_id || 'anonymous'
 
     await run_async(`
-        INSERT INTO temporal_edges (id, source_id, target_id, relation_type, valid_from, valid_to, weight, metadata, user_id)
-        VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)
-    `, [id, source_id, target_id, relation_type, valid_from_ts, weight, metadata ? JSON.stringify(metadata) : null, uid])
+        INSERT INTO temporal_edges (id, source_id, target_id, relation_type, valid_from, valid_to, weight, metadata, user_id, agent_id, session_id)
+        VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+    `, [id, source_id, target_id, relation_type, valid_from_ts, weight, metadata ? JSON.stringify(metadata) : null, uid, agent_id || null, session_id || null])
 
     console.log(`[TEMPORAL] Created edge for user ${uid}: ${source_id} --[${relation_type}]--> ${target_id}`)
     return id
@@ -108,6 +112,8 @@ export const batch_insert_facts = async (facts: Array<{
     confidence?: number
     metadata?: Record<string, any>
     user_id?: string
+    agent_id?: string
+    session_id?: string
 }>): Promise<string[]> => {
     const ids: string[] = []
 
@@ -121,7 +127,9 @@ export const batch_insert_facts = async (facts: Array<{
                 fact.valid_from,
                 fact.confidence,
                 fact.metadata,
-                fact.user_id
+                fact.user_id,
+                fact.agent_id,
+                fact.session_id
             )
             ids.push(id)
         }
