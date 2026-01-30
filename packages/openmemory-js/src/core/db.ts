@@ -160,14 +160,14 @@ if (is_pg) {
         if (env.use_pgvector) {
             await pg.query(`CREATE EXTENSION IF NOT EXISTS vector`);
             await pg.query(
-                `create table if not exists ${v}(id uuid,sector text,user_id text,v vector(1024),dim integer not null,primary key(id,sector))`,
+                `create table if not exists ${v}(id uuid,sector text,user_id text,agent_id text,session_id text,v vector(1024),dim integer not null,primary key(id,sector))`,
             );
             await pg.query(
                 `create index if not exists openmemory_vectors_hnsw_idx on ${v} using hnsw (v vector_cosine_ops) with (m = 16, ef_construction = 64)`,
             );
         } else {
             await pg.query(
-                `create table if not exists ${v}(id uuid,sector text,user_id text,v bytea,dim integer not null,primary key(id,sector))`,
+                `create table if not exists ${v}(id uuid,sector text,user_id text,agent_id text,session_id text,v bytea,dim integer not null,primary key(id,sector))`,
             );
         }
         await pg.query(
@@ -232,6 +232,18 @@ if (is_pg) {
         );
         await pg.query(
             `create index if not exists openmemory_memories_user_idx on ${m}(user_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_memories_agent_idx on ${m}(agent_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_memories_session_idx on ${m}(session_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_temporal_facts_agent_idx on "${sc}"."temporal_facts"(agent_id)`,
+        );
+        await pg.query(
+            `create index if not exists openmemory_temporal_facts_session_idx on "${sc}"."temporal_facts"(session_id)`,
         );
         await pg.query(
             `create index if not exists openmemory_vectors_user_idx on ${v}(user_id)`,
@@ -500,7 +512,7 @@ if (is_pg) {
             `create table if not exists memories(id text primary key,user_id text,agent_id text,session_id text,segment integer default 0,content text not null,simhash text,primary_sector text not null,tags text,meta text,created_at integer,updated_at integer,last_seen_at integer,salience real,decay_lambda real,version integer default 1,mean_dim integer,mean_vec blob,compressed_vec blob,feedback_score real default 0)`,
         );
         db.run(
-            `create table if not exists ${sqlite_vector_table}(id text not null,sector text not null,user_id text,v blob not null,dim integer not null,primary key(id,sector))`,
+            `create table if not exists ${sqlite_vector_table}(id text not null,sector text not null,user_id text,agent_id text,session_id text,v blob not null,dim integer not null,primary key(id,sector))`,
         );
         db.run(
             `create table if not exists waypoints(src_id text,dst_id text not null,user_id text,weight real not null,created_at integer,updated_at integer,primary key(src_id,user_id))`,
@@ -536,6 +548,12 @@ if (is_pg) {
             "create index if not exists idx_memories_user on memories(user_id)",
         );
         db.run(
+            "create index if not exists idx_memories_agent on memories(agent_id)",
+        );
+        db.run(
+            "create index if not exists idx_memories_session on memories(session_id)",
+        );
+        db.run(
             `create index if not exists idx_vectors_user on ${sqlite_vector_table}(user_id)`,
         );
         db.run(
@@ -566,6 +584,12 @@ if (is_pg) {
         );
         db.run(
             "create index if not exists idx_temporal_user_subject_pred on temporal_facts(user_id,subject,predicate,valid_from,valid_to)",
+        );
+        db.run(
+            "create index if not exists idx_temporal_agent on temporal_facts(agent_id)",
+        );
+        db.run(
+            "create index if not exists idx_temporal_session on temporal_facts(session_id)",
         );
         db.run(
             "create index if not exists idx_temporal_object on temporal_facts(object)",

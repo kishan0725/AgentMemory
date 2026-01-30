@@ -8,6 +8,8 @@ export interface TemporalFact {
     confidence: number
     last_updated: Date
     user_id?: string
+    agent_id?: string
+    session_id?: string
     metadata?: Record<string, any>
 }
 
@@ -20,6 +22,8 @@ export interface TemporalEdge {
     valid_to: Date | null
     weight: number
     user_id?: string
+    agent_id?: string
+    session_id?: string
     metadata?: Record<string, any>
 }
 
@@ -41,4 +45,6 @@ export interface TemporalQuery {
     to?: Date
     min_confidence?: number
     user_id?: string
+    agent_id?: string
+    session_id?: string
 }

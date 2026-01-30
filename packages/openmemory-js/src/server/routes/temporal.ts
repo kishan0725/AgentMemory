@@ -33,7 +33,7 @@ export const create_temporal_fact = async (req: any, res: any) => {
 
 export const get_temporal_fact = async (req: any, res: any) => {
     try {
-        const { subject, predicate, object, at, min_confidence } = req.query
+        const { subject, predicate, object, at, min_confidence, user_id, agent_id, session_id } = req.query
 
         if (!subject && !predicate && !object) {
             return res.status(400).json({ error: 'At least one of subject, predicate, or object is required' })
@@ -42,11 +42,11 @@ export const get_temporal_fact = async (req: any, res: any) => {
         const at_date = at ? new Date(at) : new Date()
         const min_conf = min_confidence ? parseFloat(min_confidence) : 0.1
 
-        const facts = await query_facts_at_time(subject, predicate, object, at_date, min_conf)
+        const facts = await query_facts_at_time(subject, predicate, object, at_date, min_conf, user_id, agent_id, session_id)
 
         res.json({
             facts,
-            query: { subject, predicate, object, at: at_date.toISOString(), min_confidence: min_conf },
+            query: { subject, predicate, object, at: at_date.toISOString(), min_confidence: min_conf, user_id, agent_id, session_id },
             count: facts.length
         })
     } catch (error) {
@@ -58,13 +58,13 @@ export const get_temporal_fact = async (req: any, res: any) => {
 
 export const get_current_temporal_fact = async (req: any, res: any) => {
     try {
-        const { subject, predicate } = req.query
+        const { subject, predicate, user_id, agent_id, session_id } = req.query
 
         if (!subject || !predicate) {
             return res.status(400).json({ error: 'Both subject and predicate are required' })
         }
 
-        const fact = await get_current_fact(subject, predicate)
+        const fact = await get_current_fact(subject, predicate, user_id, agent_id, session_id)
 
         if (!fact) {
             return res.status(404).json({ error: 'No current fact found', subject, predicate })
@@ -177,7 +177,7 @@ export const invalidate_temporal_fact = async (req: any, res: any) => {
 export const get_subject_facts = async (req: any, res: any) => {
     try {
         const { subject } = req.params
-        const { at, include_historical } = req.query
+        const { at, include_historical, user_id, agent_id, session_id } = req.query
 
         if (!subject) {
             return res.status(400).json({ error: 'Subject parameter is required' })
@@ -186,7 +186,7 @@ export const get_subject_facts = async (req: any, res: any) => {
         const at_date = at ? new Date(at) : undefined
         const include_hist = include_historical === 'true'
 
-        const facts = await get_facts_by_subject(subject, at_date, include_hist)
+        const facts = await get_facts_by_subject(subject, at_date, include_hist, user_id, agent_id, session_id)
 
         res.json({
             subject,
@@ -204,7 +204,7 @@ export const get_subject_facts = async (req: any, res: any) => {
 
 export const search_temporal_facts = async (req: any, res: any) => {
     try {
-        const { pattern, field = 'subject', at } = req.query
+        const { pattern, field = 'subject', at, user_id, agent_id, session_id } = req.query
 
         if (!pattern) {
             return res.status(400).json({ error: 'Pattern parameter is required' })
@@ -215,7 +215,7 @@ export const search_temporal_facts = async (req: any, res: any) => {
         }
 
         const at_date = at ? new Date(at) : undefined
-        const facts = await search_facts(pattern, field as any, at_date)
+        const facts = await search_facts(pattern, field as any, at_date, user_id, agent_id, session_id)
 
         res.json({
             pattern,

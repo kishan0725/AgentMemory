@@ -800,7 +800,7 @@ export async function hsg_query(
         > = {};
         for (const s of ss) {
             const qv = qe[s];
-            const results = await vector_store.searchSimilar(s, qv, k * 3, f?.user_id);
+            const results = await vector_store.searchSimilar(s, qv, k * 3, f?.user_id, f?.agent_id, f?.session_id);
             sr[s] = results.map(r => ({ id: r.id, similarity: r.score }));
         }
         const all_sims = Object.values(sr).flatMap((r) =>
@@ -1135,6 +1135,8 @@ export async function add_hsg_memory(
                 result.vector,
                 result.dim,
                 user_id || "anonymous",
+                agent_id,
+                session_id,
             );
         }
         const mean_vec = calc_mean_vec(emb_res, all_sectors);
@@ -1221,6 +1223,8 @@ export async function update_memory(
                     result.vector,
                     result.dim,
                     mem.user_id || "anonymous",
+                    mem.agent_id,
+                    mem.session_id,
                 );
             }
             const mean_vec = calc_mean_vec(emb_res, all_sectors);

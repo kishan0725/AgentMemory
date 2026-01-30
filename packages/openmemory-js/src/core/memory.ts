@@ -51,6 +51,8 @@ export interface RecallOptions {
     sector?: string;
     min_salience?: number;
     user_id?: string;
+    agent_id?: string;
+    session_id?: string;
 }
 
 export interface RecallResult {
@@ -134,11 +136,13 @@ export class Memory {
         return mem;
     }
 
-    async list(opts?: { user_id?: string, limit?: number, offset?: number, sector?: string }) {
+    async list(opts?: { user_id?: string, limit?: number, offset?: number, sector?: string, agent_id?: string, session_id?: string }) {
         const limit = opts?.limit || 10;
         const offset = opts?.offset || 0;
         const uid = opts?.user_id || this.default_user;
         const sector = opts?.sector;
+        const agent_id = opts?.agent_id;
+        const session_id = opts?.session_id;
 
         let rows: any[];
         if (uid) {
@@ -150,15 +154,25 @@ export class Memory {
                 : await q.all_mem.all(limit, offset);
         }
 
+        // Filter by agent_id and session_id at application level
+        if (agent_id) {
+            rows = rows.filter((row: any) => row.agent_id === agent_id);
+        }
+        if (session_id) {
+            rows = rows.filter((row: any) => row.session_id === session_id);
+        }
+
         return rows;
     }
 
-    async search(query: string, opts?: { user_id?: string, limit?: number, sectors?: string[] }) {
+    async search(query: string, opts?: { user_id?: string, limit?: number, sectors?: string[], agent_id?: string, session_id?: string }) {
         const k = opts?.limit || 10;
         const uid = opts?.user_id || this.default_user;
         const f: any = {};
         if (uid) f.user_id = uid;
         if (opts?.sectors) f.sectors = opts.sectors;
+        if (opts?.agent_id) f.agent_id = opts.agent_id;
+        if (opts?.session_id) f.session_id = opts.session_id;
 
         return await hsg_query(query, k, f);
     }
@@ -519,6 +533,8 @@ export class Memory {
             if (opts?.sector) filters.sectors = [opts.sector];
             if (opts?.min_salience !== undefined) filters.minSalience = opts.min_salience;
             if (user_id) filters.user_id = user_id;
+            if (opts?.agent_id) filters.agent_id = opts.agent_id;
+            if (opts?.session_id) filters.session_id = opts.session_id;
 
             const matches = await hsg_query(query, k, filters);
             results.contextual = matches.map((m: any) => ({
@@ -541,7 +557,9 @@ export class Memory {
                 opts?.fact_pattern?.object,
                 at,
                 0.0,
-                user_id ?? undefined
+                user_id ?? undefined,
+                opts?.agent_id,
+                opts?.session_id
             );
             results.factual = facts;
         }
