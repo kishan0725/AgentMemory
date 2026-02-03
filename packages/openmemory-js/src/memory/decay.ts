@@ -316,6 +316,9 @@ export const apply_decay = async () => {
                                         sector,
                                         new_vec,
                                         new_vec.length,
+                                        m.user_id,
+                                        m.agent_id,
+                                        m.session_id,
                                     );
                                     compressed = true;
                                     tot_comp++;
@@ -340,6 +343,9 @@ export const apply_decay = async () => {
                             sector,
                             fp.vector,
                             fp.vector.length,
+                            m.user_id,
+                            m.agent_id,
+                            m.session_id,
                         );
                         await run_async(
                             "update memories set summary=? where id=?",
@@ -404,6 +410,9 @@ export const on_query_hit = async (
                         sector,
                         new_vec,
                         new_vec.length,
+                        m.user_id,
+                        m.agent_id,
+                        m.session_id,
                     );
                     updated = true;
                 } catch (e) { }

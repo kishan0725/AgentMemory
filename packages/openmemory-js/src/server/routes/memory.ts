@@ -26,6 +26,8 @@ export function mem(app: any) {
                 j(b.tags || []),
                 b.metadata,
                 b.user_id,
+                b.agent_id,
+                b.session_id,
             );
             res.json(m);
 
@@ -50,6 +52,8 @@ export function mem(app: any) {
                 b.metadata,
                 b.config,
                 b.user_id,
+                undefined, // agent_id
+                undefined, // session_id
             );
             res.json(r);
         } catch (e: any) {
@@ -61,7 +65,7 @@ export function mem(app: any) {
         const b = req.body as ingest_url_req;
         if (!b?.url) return res.status(400).json({ err: "no_url" });
         try {
-            const r = await ingestURL(b.url, b.metadata, b.config, b.user_id);
+            const r = await ingestURL(b.url, b.metadata, b.config, b.user_id, undefined, undefined);
             res.json(r);
         } catch (e: any) {
             res.status(500).json({ err: "url_fail", msg: e.message });
@@ -76,6 +80,8 @@ export function mem(app: any) {
                 sectors: b.filters?.sector ? [b.filters.sector] : undefined,
                 minSalience: b.filters?.min_score,
                 user_id: b.filters?.user_id || b.user_id,
+                agent_id: b.filters?.agent_id,
+                session_id: b.filters?.session_id,
                 startTime: b.filters?.startTime,
                 endTime: b.filters?.endTime,
             };
@@ -171,6 +177,8 @@ export function mem(app: any) {
                 primary_sector: x.primary_sector,
                 version: x.version,
                 user_id: x.user_id,
+                agent_id: x.agent_id,
+                session_id: x.session_id,
             }));
             res.json({ items: i });
         } catch (e: any) {
@@ -206,6 +214,8 @@ export function mem(app: any) {
                 decay_lambda: m.decay_lambda,
                 version: m.version,
                 user_id: m.user_id,
+                agent_id: m.agent_id,
+                session_id: m.session_id,
             });
         } catch (e: any) {
             res.status(500).json({ err: "internal" });
