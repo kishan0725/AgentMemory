@@ -1163,9 +1163,14 @@ export async function add_hsg_memory(
         throw error;
     }
 }
-export async function delete_memory(id: string): Promise<boolean> {
+export async function delete_memory(id: string, user_id?: string): Promise<boolean> {
     const mem = await q.get_mem.get(id);
     if (!mem) return false;
+
+    // Validate user ownership
+    if (user_id && mem.user_id && mem.user_id !== user_id) {
+        throw new Error(`Memory ${id} not found for user ${user_id}`);
+    }
     await transaction.begin();
     try {
         await q.del_mem.run(id);
@@ -1193,9 +1198,15 @@ export async function update_memory(
     content?: string,
     tags?: string[],
     metadata?: any,
+    user_id?: string,
 ): Promise<{ id: string; updated: boolean }> {
     const mem = await q.get_mem.get(id);
     if (!mem) throw new Error(`Memory ${id} not found`);
+
+    // Validate user ownership
+    if (user_id && mem.user_id && mem.user_id !== user_id) {
+        throw new Error(`Memory ${id} not found for user ${user_id}`);
+    }
     const new_content = content !== undefined ? content : mem.content;
     const new_tags = tags !== undefined ? j(tags) : mem.tags || "[]";
     const new_meta = metadata !== undefined ? j(metadata) : mem.meta || "{}";

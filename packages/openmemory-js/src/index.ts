@@ -18,6 +18,7 @@ export {
     hsg_query,
     reinforce_memory,
     update_memory,
+    delete_memory,
     sector_configs,
     sectors,
 } from "./memory/hsg";
