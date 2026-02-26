@@ -1,6 +1,6 @@
 
-import { add_hsg_memory, hsg_query } from "../memory/hsg";
-import { q, get_async } from "./db";
+import { add_hsg_memory, hsg_query, update_memory, delete_memory } from "../memory/hsg";
+import { q, get_async, transaction } from "./db";
 import {
     insert_fact,
     batch_insert_facts,
@@ -28,6 +28,8 @@ export interface FactOptions {
     valid_from?: Date;
     metadata?: Record<string, any>;
     user_id?: string;
+    agent_id?: string;
+    session_id?: string;
 }
 
 export interface TemporalQueryOptions {
@@ -63,6 +65,11 @@ export interface RecallResult {
         primary_sector: string;
         sectors: string[];
         salience: number;
+        /** Unix timestamp in milliseconds when the memory was created */
+        created_at: number;
+        /** Unix timestamp in milliseconds when the memory was last updated */
+        updated_at: number;
+        /** Unix timestamp in milliseconds when the memory was last accessed */
         last_seen_at: number;
         path: string[];
     }>;
@@ -97,6 +104,49 @@ export interface StoreResult {
         predicate: string;
         object: string;
     }>;
+}
+
+export interface UpdateOptions {
+    type?: 'contextual' | 'factual';
+    scope?: 'global' | 'workspace';
+    // For contextual (HSG) updates
+    content?: string;
+    tags?: string[];
+    metadata?: Record<string, any>;
+    // For factual (temporal) updates - creates new version by invalidating old and creating new
+    subject?: string;
+    predicate?: string;
+    object?: string;
+    confidence?: number;
+    valid_from?: Date;
+    // Identifiers
+    user_id?: string;
+    workspace_id?: string;
+    agent_id?: string;
+    session_id?: string;
+}
+
+export interface DeleteOptions {
+    type?: 'contextual' | 'factual';
+    scope?: 'global' | 'workspace';
+    // For factual deletion behavior (always soft delete via invalidation)
+    valid_to?: Date;  // When to invalidate temporal facts (default: now)
+    // Identifiers
+    user_id?: string;
+    workspace_id?: string;
+}
+
+export interface UpdateResult {
+    id: string;
+    updated: boolean;
+    type: 'contextual' | 'factual';
+}
+
+export interface DeleteResult {
+    id: string;
+    deleted: boolean;
+    type: 'contextual' | 'factual';
+    soft_deleted?: boolean;
 }
 
 export class Memory {
@@ -424,7 +474,7 @@ export class Memory {
                 throw new Error(`Fact ${id} not found`);
             }
 
-            if (fact.user_id !== uid) {
+            if (uid && fact.user_id !== uid) {
                 throw new Error(`Fact ${id} not found for user ${uid}`);
             }
         }
@@ -459,7 +509,7 @@ export class Memory {
                 throw new Error(`Fact ${id} not found`);
             }
 
-            if (fact.user_id !== uid) {
+            if (uid && fact.user_id !== uid) {
                 throw new Error(`Fact ${id} not found for user ${uid}`);
             }
         }
@@ -488,7 +538,7 @@ export class Memory {
                 throw new Error(`Fact ${id} not found`);
             }
 
-            if (fact.user_id !== uid) {
+            if (uid && fact.user_id !== uid) {
                 throw new Error(`Fact ${id} not found for user ${uid}`);
             }
         }
@@ -544,6 +594,8 @@ export class Memory {
                 primary_sector: m.primary_sector,
                 sectors: m.sectors,
                 salience: m.salience,
+                created_at: m.created_at,
+                updated_at: m.updated_at,
                 last_seen_at: m.last_seen_at,
                 path: m.path,
             }));
@@ -668,5 +720,147 @@ export class Memory {
         }
 
         return result;
+    }
+
+    /**
+     * Update memory - contextual (in-place) or factual (versioned).
+     *
+     * Contextual: Updates content/tags/metadata in place
+     * Factual: Invalidates old fact and creates new version
+     *
+     * @param id - Memory or fact ID
+     * @param opts - Update options (type, scope, fields)
+     * @returns Update result with new ID for factual updates
+     */
+    async update(id: string, opts?: UpdateOptions): Promise<UpdateResult> {
+        const type = opts?.type || 'contextual';
+        const scope = opts?.scope || 'global';
+
+        // Determine the identifier based on scope
+        const identifier = scope === 'workspace' ? opts?.workspace_id : (opts?.user_id || this.default_user);
+
+        if (type === 'contextual') {
+            // Update HSG memory
+            const result = await update_memory(
+                id,
+                opts?.content,
+                opts?.tags,
+                opts?.metadata,
+                identifier ?? undefined
+            );
+            return {
+                id: result.id,
+                updated: result.updated,
+                type: 'contextual'
+            };
+        } else if (type === 'factual') {
+            // Temporal fact update: Invalidate old + create new (proper versioning)
+
+            // First, get the existing fact to retrieve its data
+            const existingFact = await get_async(
+                'SELECT * FROM temporal_facts WHERE id = ?',
+                [id]
+            ) as any;
+
+            if (!existingFact) {
+                throw new Error(`Fact ${id} not found`);
+            }
+
+            // Validate ownership - if identifier is provided, it must match
+            if (identifier && existingFact.user_id !== identifier) {
+                throw new Error(`Fact ${id} not found for user ${identifier}`);
+            }
+
+            // The transition time is when the new fact becomes valid
+            // This ensures temporal continuity with no gaps
+            const transitionTime = opts?.valid_from || new Date();
+
+            // Step 1: Invalidate the old fact at exactly the transition time
+            await this.invalidateFact(id, transitionTime, identifier ?? undefined);
+
+            // Step 2: Create new fact with updated values (or keep old values if not provided)
+            // The new fact becomes valid at exactly the same moment the old one is invalidated
+            const existingMetadata = JSON.parse(existingFact.metadata || '{}');
+            const newMetadata = opts?.metadata
+                ? {
+                    ...existingMetadata,
+                    ...opts.metadata,
+                    _previous_fact_id: id,
+                    _superseded_at: transitionTime.toISOString()
+                }
+                : {
+                    ...existingMetadata,
+                    _previous_fact_id: id,
+                    _superseded_at: transitionTime.toISOString()
+                };
+
+            const newFactId = await this.addFact(
+                opts?.subject || existingFact.subject,
+                opts?.predicate || existingFact.predicate,
+                opts?.object || existingFact.object,
+                {
+                    valid_from: transitionTime,
+                    confidence: opts?.confidence ?? existingFact.confidence,
+                    metadata: newMetadata,
+                    user_id: identifier ?? undefined,
+                    agent_id: opts?.agent_id || existingFact.agent_id || undefined,
+                    session_id: opts?.session_id || existingFact.session_id || undefined
+                }
+            );
+
+            return {
+                id: newFactId,
+                updated: true,
+                type: 'factual'
+            };
+        } else {
+            throw new Error(`Invalid update type: ${type}. Must be 'contextual' or 'factual'`);
+        }
+    }
+
+    /**
+     * Delete memory - contextual (permanent) or factual (invalidated).
+     *
+     * Contextual: Permanently removed from database
+     * Factual: Invalidated (soft delete) to preserve temporal history
+     *
+     * @param id - Memory or fact ID
+     * @param opts - Delete options (type, scope)
+     * @returns Delete result with soft_deleted flag
+     */
+    async delete(id: string, opts?: DeleteOptions): Promise<DeleteResult> {
+        const type = opts?.type || 'contextual';
+        const scope = opts?.scope || 'global';
+
+        // Determine the identifier based on scope
+        const identifier = scope === 'workspace' ? opts?.workspace_id : (opts?.user_id || this.default_user);
+
+        if (type === 'contextual') {
+            // Delete HSG memory (always hard delete)
+            const success = await delete_memory(id, identifier ?? undefined);
+            return {
+                id,
+                deleted: success,
+                type: 'contextual'
+            };
+        } else if (type === 'factual') {
+            // Temporal facts always use soft delete (invalidation) to preserve history
+            await transaction.begin();
+            try {
+                await this.invalidateFact(id, opts?.valid_to || new Date(), identifier ?? undefined);
+                await transaction.commit();
+                return {
+                    id,
+                    deleted: true,
+                    type: 'factual',
+                    soft_deleted: true
+                };
+            } catch (error) {
+                await transaction.rollback();
+                throw error;
+            }
+        } else {
+            throw new Error(`Invalid delete type: ${type}. Must be 'contextual' or 'factual'`);
+        }
     }
 }

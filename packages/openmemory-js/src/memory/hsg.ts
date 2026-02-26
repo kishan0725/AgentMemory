@@ -21,8 +21,11 @@ export interface hsg_mem {
     sectors: string[];
     tags?: string;
     meta?: any;
+    /** Unix timestamp in milliseconds when the memory was created */
     created_at: number;
+    /** Unix timestamp in milliseconds when the memory was last updated */
     updated_at: number;
+    /** Unix timestamp in milliseconds when the memory was last accessed */
     last_seen_at: number;
     salience: number;
     decay_lambda: number;
@@ -32,7 +35,9 @@ export interface waypoint {
     src_id: string;
     dst_id: string;
     weight: number;
+    /** Unix timestamp in milliseconds when the waypoint was created */
     created_at: number;
+    /** Unix timestamp in milliseconds when the waypoint was last updated */
     updated_at: number;
 }
 export interface hsg_q_result {
@@ -43,6 +48,11 @@ export interface hsg_q_result {
     primary_sector: string;
     path: string[];
     salience: number;
+    /** Unix timestamp in milliseconds when the memory was created */
+    created_at: number;
+    /** Unix timestamp in milliseconds when the memory was last updated */
+    updated_at: number;
+    /** Unix timestamp in milliseconds when the memory was last accessed */
     last_seen_at: number;
     tags?: string[];
     meta?: any;
@@ -264,6 +274,7 @@ export function classify_content(
         confidence,
     };
 }
+
 export function calc_decay(
     sec: string,
     init_sal: number,
@@ -907,7 +918,9 @@ export async function hsg_query(
                 primary_sector: m.primary_sector,
                 path: em?.path || [mid],
                 salience: sal,
-                last_seen_at: m.last_seen_at,
+                created_at: Number(m.created_at),
+                updated_at: Number(m.updated_at),
+                last_seen_at: Number(m.last_seen_at),
                 tags: typeof m.tags === 'string' ? JSON.parse(m.tags) : (m.tags || []),
                 meta: typeof m.meta === 'string' ? JSON.parse(m.meta) : (m.meta || {}),
             });
@@ -1163,9 +1176,14 @@ export async function add_hsg_memory(
         throw error;
     }
 }
-export async function delete_memory(id: string): Promise<boolean> {
+export async function delete_memory(id: string, user_id?: string): Promise<boolean> {
     const mem = await q.get_mem.get(id);
     if (!mem) return false;
+
+    // Validate user ownership
+    if (user_id && mem.user_id !== user_id) {
+        throw new Error(`Memory ${id} not found for user ${user_id}`);
+    }
     await transaction.begin();
     try {
         await q.del_mem.run(id);
@@ -1193,9 +1211,15 @@ export async function update_memory(
     content?: string,
     tags?: string[],
     metadata?: any,
+    user_id?: string,
 ): Promise<{ id: string; updated: boolean }> {
     const mem = await q.get_mem.get(id);
     if (!mem) throw new Error(`Memory ${id} not found`);
+
+    // Validate user ownership
+    if (user_id && mem.user_id !== user_id) {
+        throw new Error(`Memory ${id} not found for user ${user_id}`);
+    }
     const new_content = content !== undefined ? content : mem.content;
     const new_tags = tags !== undefined ? j(tags) : mem.tags || "[]";
     const new_meta = metadata !== undefined ? j(metadata) : mem.meta || "{}";
