@@ -63,6 +63,8 @@ export interface RecallResult {
         primary_sector: string;
         sectors: string[];
         salience: number;
+        created_at: number;
+        updated_at: number;
         last_seen_at: number;
         path: string[];
     }>;
@@ -587,6 +589,8 @@ export class Memory {
                 primary_sector: m.primary_sector,
                 sectors: m.sectors,
                 salience: m.salience,
+                created_at: m.created_at,
+                updated_at: m.updated_at,
                 last_seen_at: m.last_seen_at,
                 path: m.path,
             }));

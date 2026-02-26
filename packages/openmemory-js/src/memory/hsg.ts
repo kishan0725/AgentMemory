@@ -43,6 +43,8 @@ export interface hsg_q_result {
     primary_sector: string;
     path: string[];
     salience: number;
+    created_at: number;
+    updated_at: number;
     last_seen_at: number;
     tags?: string[];
     meta?: any;
@@ -907,7 +909,9 @@ export async function hsg_query(
                 primary_sector: m.primary_sector,
                 path: em?.path || [mid],
                 salience: sal,
-                last_seen_at: m.last_seen_at,
+                created_at: Number(m.created_at),
+                updated_at: Number(m.updated_at),
+                last_seen_at: Number(m.last_seen_at),
                 tags: typeof m.tags === 'string' ? JSON.parse(m.tags) : (m.tags || []),
                 meta: typeof m.meta === 'string' ? JSON.parse(m.meta) : (m.meta || {}),
             });
