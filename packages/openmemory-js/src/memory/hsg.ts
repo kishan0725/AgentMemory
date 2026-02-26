@@ -274,6 +274,7 @@ export function classify_content(
         confidence,
     };
 }
+
 export function calc_decay(
     sec: string,
     init_sal: number,
