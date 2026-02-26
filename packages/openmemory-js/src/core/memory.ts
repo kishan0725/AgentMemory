@@ -1,6 +1,6 @@
 
 import { add_hsg_memory, hsg_query, update_memory, delete_memory } from "../memory/hsg";
-import { q, get_async } from "./db";
+import { q, get_async, transaction } from "./db";
 import {
     insert_fact,
     batch_insert_facts,
@@ -28,6 +28,8 @@ export interface FactOptions {
     valid_from?: Date;
     metadata?: Record<string, any>;
     user_id?: string;
+    agent_id?: string;
+    session_id?: string;
 }
 
 export interface TemporalQueryOptions {
@@ -63,8 +65,11 @@ export interface RecallResult {
         primary_sector: string;
         sectors: string[];
         salience: number;
+        /** Unix timestamp in milliseconds when the memory was created */
         created_at: number;
+        /** Unix timestamp in milliseconds when the memory was last updated */
         updated_at: number;
+        /** Unix timestamp in milliseconds when the memory was last accessed */
         last_seen_at: number;
         path: string[];
     }>;
@@ -469,7 +474,7 @@ export class Memory {
                 throw new Error(`Fact ${id} not found`);
             }
 
-            if (fact.user_id !== uid) {
+            if (uid && fact.user_id !== uid) {
                 throw new Error(`Fact ${id} not found for user ${uid}`);
             }
         }
@@ -504,7 +509,7 @@ export class Memory {
                 throw new Error(`Fact ${id} not found`);
             }
 
-            if (fact.user_id !== uid) {
+            if (uid && fact.user_id !== uid) {
                 throw new Error(`Fact ${id} not found for user ${uid}`);
             }
         }
@@ -533,7 +538,7 @@ export class Memory {
                 throw new Error(`Fact ${id} not found`);
             }
 
-            if (fact.user_id !== uid) {
+            if (uid && fact.user_id !== uid) {
                 throw new Error(`Fact ${id} not found for user ${uid}`);
             }
         }
@@ -761,31 +766,45 @@ export class Memory {
                 throw new Error(`Fact ${id} not found`);
             }
 
-            // Validate ownership
-            if (identifier && existingFact.user_id && existingFact.user_id !== identifier) {
+            // Validate ownership - if identifier is provided, it must match
+            if (identifier && existingFact.user_id !== identifier) {
                 throw new Error(`Fact ${id} not found for user ${identifier}`);
             }
 
-            const now = new Date();
+            // The transition time is when the new fact becomes valid
+            // This ensures temporal continuity with no gaps
+            const transitionTime = opts?.valid_from || new Date();
 
-            // Step 1: Invalidate the old fact
-            await this.invalidateFact(id, now, identifier ?? undefined);
+            // Step 1: Invalidate the old fact at exactly the transition time
+            await this.invalidateFact(id, transitionTime, identifier ?? undefined);
 
             // Step 2: Create new fact with updated values (or keep old values if not provided)
+            // The new fact becomes valid at exactly the same moment the old one is invalidated
+            const existingMetadata = JSON.parse(existingFact.metadata || '{}');
+            const newMetadata = opts?.metadata
+                ? {
+                    ...existingMetadata,
+                    ...opts.metadata,
+                    _previous_fact_id: id,
+                    _superseded_at: transitionTime.toISOString()
+                }
+                : {
+                    ...existingMetadata,
+                    _previous_fact_id: id,
+                    _superseded_at: transitionTime.toISOString()
+                };
+
             const newFactId = await this.addFact(
                 opts?.subject || existingFact.subject,
                 opts?.predicate || existingFact.predicate,
                 opts?.object || existingFact.object,
                 {
-                    valid_from: opts?.valid_from || now,
+                    valid_from: transitionTime,
                     confidence: opts?.confidence ?? existingFact.confidence,
-                    metadata: opts?.metadata ? {
-                        ...JSON.parse(existingFact.metadata || '{}'),
-                        ...opts.metadata,
-                        _previous_fact_id: id,
-                        _superseded_at: now.toISOString()
-                    } : JSON.parse(existingFact.metadata || '{}'),
-                    user_id: identifier ?? undefined
+                    metadata: newMetadata,
+                    user_id: identifier ?? undefined,
+                    agent_id: opts?.agent_id || existingFact.agent_id || undefined,
+                    session_id: opts?.session_id || existingFact.session_id || undefined
                 }
             );
 
@@ -826,13 +845,20 @@ export class Memory {
             };
         } else if (type === 'factual') {
             // Temporal facts always use soft delete (invalidation) to preserve history
-            await this.invalidateFact(id, opts?.valid_to || new Date(), identifier ?? undefined);
-            return {
-                id,
-                deleted: true,
-                type: 'factual',
-                soft_deleted: true
-            };
+            await transaction.begin();
+            try {
+                await this.invalidateFact(id, opts?.valid_to || new Date(), identifier ?? undefined);
+                await transaction.commit();
+                return {
+                    id,
+                    deleted: true,
+                    type: 'factual',
+                    soft_deleted: true
+                };
+            } catch (error) {
+                await transaction.rollback();
+                throw error;
+            }
         } else {
             throw new Error(`Invalid delete type: ${type}. Must be 'contextual' or 'factual'`);
         }

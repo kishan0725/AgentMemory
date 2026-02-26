@@ -21,8 +21,11 @@ export interface hsg_mem {
     sectors: string[];
     tags?: string;
     meta?: any;
+    /** Unix timestamp in milliseconds when the memory was created */
     created_at: number;
+    /** Unix timestamp in milliseconds when the memory was last updated */
     updated_at: number;
+    /** Unix timestamp in milliseconds when the memory was last accessed */
     last_seen_at: number;
     salience: number;
     decay_lambda: number;
@@ -32,7 +35,9 @@ export interface waypoint {
     src_id: string;
     dst_id: string;
     weight: number;
+    /** Unix timestamp in milliseconds when the waypoint was created */
     created_at: number;
+    /** Unix timestamp in milliseconds when the waypoint was last updated */
     updated_at: number;
 }
 export interface hsg_q_result {
@@ -43,8 +48,11 @@ export interface hsg_q_result {
     primary_sector: string;
     path: string[];
     salience: number;
+    /** Unix timestamp in milliseconds when the memory was created */
     created_at: number;
+    /** Unix timestamp in milliseconds when the memory was last updated */
     updated_at: number;
+    /** Unix timestamp in milliseconds when the memory was last accessed */
     last_seen_at: number;
     tags?: string[];
     meta?: any;
@@ -1172,7 +1180,7 @@ export async function delete_memory(id: string, user_id?: string): Promise<boole
     if (!mem) return false;
 
     // Validate user ownership
-    if (user_id && mem.user_id && mem.user_id !== user_id) {
+    if (user_id && mem.user_id !== user_id) {
         throw new Error(`Memory ${id} not found for user ${user_id}`);
     }
     await transaction.begin();
@@ -1208,7 +1216,7 @@ export async function update_memory(
     if (!mem) throw new Error(`Memory ${id} not found`);
 
     // Validate user ownership
-    if (user_id && mem.user_id && mem.user_id !== user_id) {
+    if (user_id && mem.user_id !== user_id) {
         throw new Error(`Memory ${id} not found for user ${user_id}`);
     }
     const new_content = content !== undefined ? content : mem.content;
