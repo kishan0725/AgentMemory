@@ -960,7 +960,7 @@ export async function hsg_query(
                 r.id,
                 r.salience,
             );
-            await q.upd_seen.run(r.id, Date.now(), rsal, Date.now());
+            await q.upd_access.run(r.id, Date.now(), rsal);
             if (r.path.length > 1) {
                 await reinforce_waypoints(r.path);
                 const wps = await q.get_waypoints_by_src.all(r.id);
@@ -988,11 +988,10 @@ export async function hsg_query(
                             0,
                             Math.min(1, linked_mem.salience + ctx_boost),
                         );
-                        await q.upd_seen.run(
+                        await q.upd_access.run(
                             u.node_id,
                             Date.now(),
                             new_sal,
-                            Date.now(),
                         );
                     }
                 }
@@ -1023,7 +1022,7 @@ export async function run_decay_process(): Promise<{
         const ds = (Date.now() - m.last_seen_at) / 86400000;
         const ns = calc_decay(m.primary_sector, m.salience, ds);
         if (ns !== m.salience) {
-            await q.upd_seen.run(m.id, m.last_seen_at, ns, Date.now());
+            await q.upd_access.run(m.id, m.last_seen_at, ns);
             d++;
         }
         p++;

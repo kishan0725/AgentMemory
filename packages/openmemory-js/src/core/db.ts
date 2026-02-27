@@ -14,6 +14,7 @@ type q_type = {
     upd_compressed_vec: { run: (...p: any[]) => Promise<void> };
     upd_feedback: { run: (...p: any[]) => Promise<void> };
     upd_seen: { run: (...p: any[]) => Promise<void> };
+    upd_access: { run: (...p: any[]) => Promise<void> };
     upd_mem: { run: (...p: any[]) => Promise<void> };
     upd_mem_with_sector: { run: (...p: any[]) => Promise<void> };
     del_mem: { run: (...p: any[]) => Promise<void> };
@@ -316,6 +317,13 @@ if (is_pg) {
             run: (...p) =>
                 run_async(
                     `update ${m} set last_seen_at=$2,salience=$3,updated_at=$4 where id=$1`,
+                    p,
+                ),
+        },
+        upd_access: {
+            run: (...p) =>
+                run_async(
+                    `update ${m} set last_seen_at=$2,salience=$3 where id=$1`,
                     p,
                 ),
         },
@@ -728,6 +736,13 @@ if (is_pg) {
             run: (...p) =>
                 exec(
                     "update memories set last_seen_at=?,salience=?,updated_at=? where id=?",
+                    p,
+                ),
+        },
+        upd_access: {
+            run: (...p) =>
+                exec(
+                    "update memories set last_seen_at=?,salience=? where id=?",
                     p,
                 ),
         },
