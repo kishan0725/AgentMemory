@@ -1,6 +1,6 @@
 {
     "name": "@presidio-dev/agent-memory",
-    "version": "1.5.3",
+    "version": "1.5.4",
     "description": "Long-term memory engine for AI agents",
     "author": "Presidio",
     "contributors": [
@@ -30,7 +30,8 @@
     },
     "bin": {
         "opm": "./bin/opm.js",
-        "agent-memory": "./bin/opm.js"
+        "agent-memory": "./bin/opm.js",
+        "agent-memory-migrate": "./dist/migrate.js"
     },
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

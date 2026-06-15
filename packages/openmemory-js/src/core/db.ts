@@ -137,132 +137,7 @@ if (is_pg) {
             check();
         });
     const init = async () => {
-        try {
-            await pg.query("SELECT 1");
-        } catch (err: any) {
-            if (err.code === "3D000") {
-                const admin = pool("postgres");
-                try {
-                    await admin.query(`CREATE DATABASE ${db_name}`);
-                    console.error(`[DB] Created ${db_name}`);
-                } catch (e: any) {
-                    if (e.code !== "42P04") throw e;
-                } finally {
-                    await admin.end();
-                }
-                pg = pool(db_name);
-                await pg.query("SELECT 1");
-            } else throw err;
-        }
-        await pg.query(
-            `create table if not exists ${m}(id uuid primary key,user_id text,agent_id text,session_id text,segment integer default 0,content text not null,simhash text,primary_sector text not null,tags text,meta text,created_at bigint,updated_at bigint,last_seen_at bigint,salience double precision,decay_lambda double precision,version integer default 1,mean_dim integer,mean_vec bytea,compressed_vec bytea,feedback_score double precision default 0)`,
-        );
-        
-        if (env.use_pgvector) {
-            await pg.query(`CREATE EXTENSION IF NOT EXISTS vector`);
-            await pg.query(
-                `create table if not exists ${v}(id uuid,sector text,user_id text,agent_id text,session_id text,v vector(1024),dim integer not null,primary key(id,sector))`,
-            );
-            await pg.query(
-                `create index if not exists openmemory_vectors_hnsw_idx on ${v} using hnsw (v vector_cosine_ops) with (m = 16, ef_construction = 64)`,
-            );
-        } else {
-            await pg.query(
-                `create table if not exists ${v}(id uuid,sector text,user_id text,agent_id text,session_id text,v bytea,dim integer not null,primary key(id,sector))`,
-            );
-        }
-        await pg.query(
-            `create table if not exists ${w}(src_id text,dst_id text not null,user_id text,weight double precision not null,created_at bigint,updated_at bigint,primary key(src_id,user_id))`,
-        );
-        await pg.query(
-            `create table if not exists ${l}(id text primary key,model text,status text,ts bigint,err text)`,
-        );
-        await pg.query(
-            `create table if not exists "${sc}"."openmemory_users"(user_id text primary key,summary text,reflection_count integer default 0,created_at bigint,updated_at bigint)`,
-        );
-        await pg.query(
-            `create table if not exists "${sc}"."stats"(id serial primary key,type text not null,count integer default 1,ts bigint not null)`,
-        );
-        await pg.query(
-            `create table if not exists "${sc}"."temporal_facts"(id uuid primary key,subject text not null,predicate text not null,object text not null,valid_from bigint not null,valid_to bigint,confidence double precision not null check(confidence >= 0 and confidence <= 1),last_updated bigint not null,metadata text,user_id text,agent_id text,session_id text)`,
-        );
-        await pg.query(
-            `create table if not exists "${sc}"."temporal_edges"(id uuid primary key,source_id uuid not null,target_id uuid not null,relation_type text not null,valid_from bigint not null,valid_to bigint,weight double precision not null,metadata text,user_id text,agent_id text,session_id text,foreign key(source_id) references "${sc}"."temporal_facts"(id),foreign key(target_id) references "${sc}"."temporal_facts"(id))`,
-        );
-        await pg.query(
-            `create index if not exists temporal_facts_subject_idx on "${sc}"."temporal_facts"(subject)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_facts_predicate_idx on "${sc}"."temporal_facts"(predicate)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_facts_validity_idx on "${sc}"."temporal_facts"(valid_from,valid_to)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_facts_composite_idx on "${sc}"."temporal_facts"(subject,predicate,valid_from,valid_to)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_facts_user_idx on "${sc}"."temporal_facts"(user_id)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_facts_user_subject_pred_idx on "${sc}"."temporal_facts"(user_id,subject,predicate,valid_from,valid_to)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_facts_object_idx on "${sc}"."temporal_facts"(object)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_edges_source_idx on "${sc}"."temporal_edges"(source_id)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_edges_user_idx on "${sc}"."temporal_edges"(user_id)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_edges_target_idx on "${sc}"."temporal_edges"(target_id)`,
-        );
-        await pg.query(
-            `create index if not exists temporal_edges_validity_idx on "${sc}"."temporal_edges"(valid_from,valid_to)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_memories_sector_idx on ${m}(primary_sector)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_memories_segment_idx on ${m}(segment)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_memories_simhash_idx on ${m}(simhash)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_memories_user_idx on ${m}(user_id)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_memories_agent_idx on ${m}(agent_id)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_memories_session_idx on ${m}(session_id)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_temporal_facts_agent_idx on "${sc}"."temporal_facts"(agent_id)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_temporal_facts_session_idx on "${sc}"."temporal_facts"(session_id)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_vectors_user_idx on ${v}(user_id)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_waypoints_user_idx on ${w}(user_id)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_stats_ts_idx on "${sc}"."stats"(ts)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_stats_type_idx on "${sc}"."stats"(type)`,
-        );
-        await pg.query(
-            `create index if not exists openmemory_stats_type_idx on "${sc}"."stats"(type)`,
-        );
-        ready = true;
-
+        await pg.query("SELECT 1");
 
         if (env.vector_backend === "valkey") {
             vector_store = new ValkeyVectorStore();
@@ -274,6 +149,8 @@ if (is_pg) {
             vector_store = new PostgresVectorStore({ run_async, get_async, all_async }, v.replace(/"/g, ""));
             console.error(`[DB] Using Postgres VectorStore with table: ${v}`);
         }
+
+        ready = true;
     };
     init().catch((err) => {
         console.error("[DB] Init failed:", err);
