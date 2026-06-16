@@ -137,20 +137,25 @@ if (is_pg) {
             check();
         });
     const init = async () => {
+        console.log(
+            `[DB] Initializing Postgres runtime connection for schema "${sc}". Runtime schema/index DDL is disabled; run agent-memory migration explicitly.`,
+        );
         await pg.query("SELECT 1");
+        console.log("[DB] Postgres runtime connection verified");
 
         if (env.vector_backend === "valkey") {
             vector_store = new ValkeyVectorStore();
-            console.error("[DB] Using Valkey VectorStore");
+            console.log("[DB] Using Valkey VectorStore");
         } else if (env.use_pgvector) {
             vector_store = new PgVectorStore({ run_async, get_async, all_async }, v.replace(/"/g, ""));
-            console.error(`[DB] Using PgVector VectorStore with table: ${v}`);
+            console.log(`[DB] Using PgVector VectorStore with table: ${v}`);
         } else {
             vector_store = new PostgresVectorStore({ run_async, get_async, all_async }, v.replace(/"/g, ""));
-            console.error(`[DB] Using Postgres VectorStore with table: ${v}`);
+            console.log(`[DB] Using Postgres VectorStore with table: ${v}`);
         }
 
         ready = true;
+        console.log("[DB] Runtime initialization completed without schema/index DDL");
     };
     init().catch((err) => {
         console.error("[DB] Init failed:", err);
