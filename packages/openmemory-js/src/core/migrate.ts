@@ -263,9 +263,14 @@ async function run_pg_migrations(pool: Pool): Promise<void> {
     let lock_acquired = false;
 
     try {
+        const t = get_pg_table_names();
+        log(
+            `Starting Postgres migration for schema ${t.schema}, memories table ${t.memories}, vectors table ${t.vectors}`,
+        );
         await client.query(`SET lock_timeout = '5s'`);
         await client.query(`SET statement_timeout = '30min'`);
 
+        log("Acquiring OpenMemory migration advisory lock");
         const lock = await client.query(
             `SELECT pg_try_advisory_lock(hashtext($1::text)) AS locked`,
             [MIGRATION_LOCK_KEY],
@@ -275,14 +280,17 @@ async function run_pg_migrations(pool: Pool): Promise<void> {
         if (!lock_acquired) {
             throw new Error("Another OpenMemory migration is already running");
         }
+        log("OpenMemory migration advisory lock acquired");
 
-        log("Running Postgres schema migrations");
-        for (const sql of get_pg_schema_statements()) {
+        const schema_statements = get_pg_schema_statements();
+        log(`Running ${schema_statements.length} Postgres schema migration statements`);
+        for (const sql of schema_statements) {
             await client.query(sql);
         }
 
-        log("Running Postgres concurrent index migrations");
-        for (const sql of get_pg_index_statements()) {
+        const index_statements = get_pg_index_statements();
+        log(`Running ${index_statements.length} Postgres concurrent index migration statements`);
+        for (const sql of index_statements) {
             await client.query(sql);
         }
 
@@ -293,6 +301,7 @@ async function run_pg_migrations(pool: Pool): Promise<void> {
             await client.query(`SELECT pg_advisory_unlock(hashtext($1::text))`, [
                 MIGRATION_LOCK_KEY,
             ]);
+            log("OpenMemory migration advisory lock released");
         }
         client.release();
     }
@@ -302,6 +311,7 @@ export async function run_migrations() {
     log("Checking for pending migrations...");
 
     if (is_pg) {
+        log("Using Postgres metadata backend");
         const ssl =
             process.env.OM_PG_SSL === "require"
                 ? { rejectUnauthorized: false }
