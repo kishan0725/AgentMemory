@@ -6,7 +6,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'packages/openmemory-js/**'
       - 'packages/openmemory-py/**'
   workflow_dispatch:
 
@@ -14,7 +13,6 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      js_changed: ${{ steps.filter.outputs.js }}
       py_changed: ${{ steps.filter.outputs.py }}
     steps:
       - uses: actions/checkout@v4
@@ -22,64 +20,8 @@ jobs:
         id: filter
         with:
           filters: |
-            js:
-              - 'packages/openmemory-js/**'
             py:
               - 'packages/openmemory-py/**'
-
-  publish-js:
-    needs: detect-changes
-    runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.js_changed == 'true' || github.event_name == 'workflow_dispatch'
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: get version
-        id: version
-        run: |
-          cd packages/openmemory-js
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Publishing openmemory-js@$VERSION"
-
-      - name: install deps
-        run: cd packages/openmemory-js && npm ci
-
-      - name: build
-        run: cd packages/openmemory-js && npm run build
-
-      - name: check if version exists
-        id: check
-        run: |
-          cd packages/openmemory-js
-          VERSION=$(node -p "require('./package.json').version")
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "⚠️  Version $VERSION already published to npm, skipping"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "✅ Version $VERSION not found on npm, proceeding with publish"
-          fi
-
-      - name: publish
-        if: steps.check.outputs.exists == 'false'
-        run: cd packages/openmemory-js && npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: notify
-        run: |
-          if [ "${{ steps.check.outputs.exists }}" == "true" ]; then
-            echo "⏭️  Skipped: openmemory-js@${{ steps.version.outputs.version }} already published"
-          else
-            echo "✅ Published openmemory-js@${{ steps.version.outputs.version }}"
-          fi
 
   publish-py:
     needs: detect-changes
