@@ -258,6 +258,18 @@ function get_pg_index_statements(): string[] {
     ];
 }
 
+async function pg_memories_table_exists(db: Pool | PoolClient): Promise<boolean> {
+    const t = get_pg_table_names();
+    const exists = await db.query(
+        `SELECT 1
+         FROM information_schema.tables
+         WHERE table_schema = $1 AND table_name = $2
+         LIMIT 1`,
+        [t.schema, t.memories],
+    );
+    return (exists.rowCount ?? 0) > 0;
+}
+
 async function run_pg_migrations(pool: Pool): Promise<void> {
     const client = await pool.connect();
     let lock_acquired = false;
@@ -329,7 +341,11 @@ export async function run_migrations() {
         });
 
         try {
-            await run_pg_migrations(pool);
+            if (await pg_memories_table_exists(pool)) {
+                log("OpenMemory tables already exist; skipping migration");
+            } else {
+                await run_pg_migrations(pool);
+            }
         } finally {
             await pool.end();
         }
