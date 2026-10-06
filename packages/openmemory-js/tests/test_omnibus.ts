@@ -150,11 +150,43 @@ async function test_content_robustness() {
     console.log(" -> PASS: Complex formats handled.");
 }
 
+async function test_dedup_owner_isolation() {
+    console.log("\n[Phase 4] Dedup Owner Isolation");
+    const mem = new Memory();
+    await cleanup("dedup_owner_a");
+
+    const content = "Presenting the roadmap deck to stakeholders on Oct 7 at 10 AM EST";
+    const first = await mem.add(content, { user_id: "dedup_owner_a" });
+    const before = await q.get_mem.get(first.id);
+
+    // Same content from another owner must create that owner's own memory.
+    const other = await mem.add(content, { user_id: "dedup_owner_b" });
+    if (other.id === first.id || other.deduplicated) {
+        throw new Error("FAIL: Dedup matched another owner's memory.");
+    }
+    const otherRow = await q.get_mem.get(other.id);
+    if (otherRow?.user_id !== "dedup_owner_b") {
+        throw new Error("FAIL: Second owner's memory was not stored under that owner.");
+    }
+    const after = await q.get_mem.get(first.id);
+    if (after.salience !== before.salience || after.last_seen_at !== before.last_seen_at) {
+        throw new Error("FAIL: Another owner's write modified the first owner's memory.");
+    }
+
+    // Same content from the same owner still deduplicates.
+    const repeat = await mem.add(content, { user_id: "dedup_owner_a" });
+    if (repeat.id !== first.id || !repeat.deduplicated) {
+        throw new Error("FAIL: Same-owner duplicate was not deduplicated.");
+    }
+    console.log(" -> PASS: Dedup is scoped to the memory owner.");
+}
+
 async function run_all() {
     try {
         await test_evolutionary_stability();
         await test_boolean_metadata_logic();
         await test_content_robustness();
+        await test_dedup_owner_isolation();
         console.log("\n[OMNIBUS] ALL TESTS PASSED");
         process.exit(0);
     } catch (e) {

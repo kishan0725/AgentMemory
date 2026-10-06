@@ -376,7 +376,11 @@ async def calc_multi_vec_fusion_score(mid: str, qe: Dict[str, List[float]], w: D
 
 async def add_hsg_memory(content: str, tags: Optional[str] = None, metadata: Any = None, user_id: Optional[str] = None) -> Dict[str, Any]:
     simhash = compute_simhash(content)
-    existing = db.fetchone("SELECT * FROM memories WHERE simhash=? ORDER BY salience DESC LIMIT 1", (simhash,))
+    # Dedup only against the same owner's memories; inserts store a missing user_id as "anonymous".
+    existing = db.fetchone(
+        "SELECT * FROM memories WHERE simhash=? AND user_id=? ORDER BY salience DESC LIMIT 1",
+        (simhash, user_id or "anonymous"),
+    )
 
     if existing and hamming_dist(simhash, existing["simhash"]) <= 3:
         now = int(time.time()*1000)
