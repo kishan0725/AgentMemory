@@ -90,6 +90,8 @@ export interface StoreOptions {
     user_id?: string;
     agent_id?: string;
     session_id?: string;
+    /** Always insert a new contextual memory instead of reinforcing a near-duplicate. Defaults to false. */
+    skip_dedup?: boolean;
 }
 
 export interface StoreResult {
@@ -651,7 +653,7 @@ export class Memory {
      *   })
      *
      * @param content - Natural language text to store (required for 'contextual' and 'both')
-     * @param opts - Storage options including type, facts, tags, metadata, and user_id
+     * @param opts - Storage options including type, facts, tags, metadata, user_id, and skip_dedup
      * @returns IDs and metadata for stored memories and/or facts
      */
     async store(content: string, opts?: StoreOptions): Promise<StoreResult> {
@@ -678,7 +680,8 @@ export class Memory {
                 meta,
                 uid ?? undefined,
                 opts?.agent_id,
-                opts?.session_id
+                opts?.session_id,
+                opts?.skip_dedup
             );
 
             result.hsg = {

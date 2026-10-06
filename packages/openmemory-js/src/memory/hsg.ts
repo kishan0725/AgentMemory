@@ -1057,6 +1057,7 @@ export async function add_hsg_memory(
     user_id?: string,
     agent_id?: string,
     session_id?: string,
+    skip_dedup = false,
 ): Promise<{
     id: string;
     primary_sector: string;
@@ -1065,7 +1066,7 @@ export async function add_hsg_memory(
     deduplicated?: boolean;
 }> {
     const simhash = compute_simhash(content);
-    const existing = await q.get_mem_by_simhash.get(simhash);
+    const existing = skip_dedup ? null : await q.get_mem_by_simhash.get(simhash);
     if (existing && hamming_dist(simhash, existing.simhash) <= 3) {
         const now = Date.now();
         const boosted_sal = Math.min(1, existing.salience + 0.15);

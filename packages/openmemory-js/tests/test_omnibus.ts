@@ -150,11 +150,44 @@ async function test_content_robustness() {
     console.log(" -> PASS: Complex formats handled.");
 }
 
+async function test_store_skip_dedup() {
+    console.log("\n[Phase 4] Store Skip Dedup");
+    const mem = new Memory();
+    const uid = "skip_dedup_user";
+    await cleanup(uid);
+
+    const content = "Weekly sync with the platform team every Monday at 9 AM";
+    const first = await mem.store(content, { user_id: uid });
+    const firstId = first.hsg!.id;
+
+    // Default behaviour still deduplicates identical content.
+    const repeat = await mem.store(content, { user_id: uid });
+    if (repeat.hsg!.id !== firstId) {
+        throw new Error("FAIL: Default store did not deduplicate identical content.");
+    }
+    const before = await q.get_mem.get(firstId);
+
+    // skip_dedup always inserts a new memory and leaves the existing one untouched.
+    const forced = await mem.store(content, { user_id: uid, skip_dedup: true });
+    if (forced.hsg!.id === firstId) {
+        throw new Error("FAIL: skip_dedup returned the existing memory.");
+    }
+    if (!(await q.get_mem.get(forced.hsg!.id))) {
+        throw new Error("FAIL: skip_dedup memory was not inserted.");
+    }
+    const after = await q.get_mem.get(firstId);
+    if (after.salience !== before.salience || after.last_seen_at !== before.last_seen_at) {
+        throw new Error("FAIL: skip_dedup reinforced the existing memory.");
+    }
+    console.log(" -> PASS: skip_dedup inserts a new memory.");
+}
+
 async function run_all() {
     try {
         await test_evolutionary_stability();
         await test_boolean_metadata_logic();
         await test_content_robustness();
+        await test_store_skip_dedup();
         console.log("\n[OMNIBUS] ALL TESTS PASSED");
         process.exit(0);
     } catch (e) {
