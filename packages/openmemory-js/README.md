@@ -14,7 +14,7 @@ agent-memory is a **cognitive memory engine** for llms and agents.
 - 📥 sources: github, notion, google drive, onedrive, web crawler
 - 🔍 explainable traces (see *why* something was recalled)
 
-your model stays stateless. **your app stops being amnesiac.**
+Your model stays stateless. **your app stops being amnesiac.**
 
 ---
 
