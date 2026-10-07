@@ -1,4 +1,4 @@
-# OpenMemory
+# AgentMemory
 
 > **Real long-term memory for AI agents. Not RAG. Not a vector DB. Self-hosted, Python + Node.**
 
