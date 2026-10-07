@@ -151,7 +151,37 @@ async def test_content_robustness():
                  
     print(" -> PASS: Complex formats handled.")
 
+@pytest.mark.asyncio
+async def test_dedup_owner_isolation():
+    """
+    Verify identical content from different owners never deduplicates across owners.
+    """
+    mem = Memory()
+    await mem.delete_all(user_id="dedup_owner_a")
+    await mem.delete_all(user_id="dedup_owner_b")
+
+    print("\n[Phase 4] Dedup Owner Isolation")
+    content = "Presenting the roadmap deck to stakeholders on Oct 7 at 10 AM EST"
+    first = await mem.add(content, user_id="dedup_owner_a")
+    before = dict(await mem.get(first["id"]))
+
+    # Same content from another owner must create that owner's own memory.
+    other = await mem.add(content, user_id="dedup_owner_b")
+    assert other["id"] != first["id"], "Dedup matched another owner's memory."
+    other_row = await mem.get(other["id"])
+    assert other_row["user_id"] == "dedup_owner_b", "Second owner's memory was not stored under that owner."
+    after = await mem.get(first["id"])
+    assert after["salience"] == before["salience"], "Another owner's write modified the first owner's memory."
+    assert after["last_seen_at"] == before["last_seen_at"], "Another owner's write modified the first owner's memory."
+
+    # Same content from the same owner still deduplicates.
+    repeat = await mem.add(content, user_id="dedup_owner_a")
+    assert repeat["id"] == first["id"], "Same-owner duplicate was not deduplicated."
+
+    print(" -> PASS: Dedup is scoped to the memory owner.")
+
 if __name__ == "__main__":
     asyncio.run(test_evolutionary_stability())
     asyncio.run(test_boolean_metadata_logic())
     asyncio.run(test_content_robustness())
+    asyncio.run(test_dedup_owner_isolation())
