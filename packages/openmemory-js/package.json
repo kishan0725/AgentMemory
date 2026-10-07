@@ -9,10 +9,10 @@
     "license": "Apache-2.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/kishan0725/OpenMemory.git",
+        "url": "https://github.com", 
         "directory": "packages/openmemory-js"
     },
-    "homepage": "https://github.com/kishan0725/OpenMemory",
+    "homepage": "https://github.com",
     "keywords": [
         "ai",
         "memory",
