@@ -663,6 +663,7 @@ export class Memory {
         if (type === 'factual' && (!opts?.facts || opts.facts.length === 0)) {
             throw new Error("Facts array is required when type is 'factual'");
         }
+
         if ((type === 'contextual' || type === 'both') && !content) {
             throw new Error(`Content is required when type is '${type}'`);
         }
