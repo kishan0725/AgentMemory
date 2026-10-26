@@ -45,7 +45,7 @@
     "dependencies": {
         "@aws-sdk/client-bedrock-runtime": "^3.932.0",
         "@azure/msal-node": "^2.0.0",
-        "@modelcontextprotocol/sdk": "^1.22.0",
+        "@modelcontextprotocol/sdk": "^1.32.2",
         "@notionhq/client": "^2.2.0",
         "@octokit/rest": "^21.0.0",
         "cheerio": "^1.0.0",
@@ -55,13 +55,13 @@
         "ioredis": "^5.8.2",
         "mammoth": "^1.11.0",
         "nodemon": "^3.1.11",
-        "openai": "^4.73.0",
+        "openai": "^6.49.0",
         "pdf-parse": "^2.4.5",
         "pg": "^8.16.3",
         "sqlite3": "^5.1.7",
         "turndown": "^7.2.2",
         "ws": "^8.18.3",
-        "zod": "^3.25.76"
+        "zod": "^4.6.7"
     },
     "devDependencies": {
         "@types/cheerio": "^0.22.35",

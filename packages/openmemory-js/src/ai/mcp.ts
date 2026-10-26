@@ -319,7 +319,7 @@ export const create_mcp_srv = () => {
                 .optional()
                 .describe("Optional tag list (for HSG storage)"),
             metadata: z
-                .record(z.any())
+                .record(z.string(), z.any())
                 .optional()
                 .describe("Arbitrary metadata blob"),
             user_id: z
@@ -684,24 +684,19 @@ const extract_pay = async (req: IncomingMessage & { body?: any }) => {
 };
 
 export const mcp = (app: any) => {
-    const srv = create_mcp_srv();
-    const trans = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-        enableJsonResponse: true,
-    });
-    const srv_ready = srv
-        .connect(trans)
-        .then(() => {
-            console.error("[MCP] Server started and transport connected");
-        })
-        .catch((error) => {
-            console.error("[MCP] Failed to initialize transport:", error);
-            throw error;
-        });
-
+    // Stateless mode: the SDK rejects reusing a transport across requests, so each request gets its own server + transport
     const handle_req = async (req: any, res: any) => {
         try {
-            await srv_ready;
+            const srv = create_mcp_srv();
+            const trans = new StreamableHTTPServerTransport({
+                sessionIdGenerator: undefined,
+                enableJsonResponse: true,
+            });
+            res.on("close", () => {
+                void trans.close();
+                void srv.close();
+            });
+            await srv.connect(trans);
             const pay = await extract_pay(req);
             if (!pay || typeof pay !== "object") {
                 send_err(res, -32600, "Request body must be a JSON object");

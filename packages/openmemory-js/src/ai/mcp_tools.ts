@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 
@@ -35,8 +34,10 @@ export class ToolRegistry {
                 tools: Array.from(this.tools.values()).map(t => {
                     // Use any to bypass deep type instantiation
                     const schema: any = t.inputSchema;
-                    const jsonSchema = zodToJsonSchema(schema, {
-                        target: "jsonSchema2019-09"
+                    // io: "input" keeps fields with defaults optional, matching what callers may send
+                    const jsonSchema = z.toJSONSchema(schema, {
+                        target: "draft-2020-12",
+                        io: "input"
                     }) as any;
 
 
