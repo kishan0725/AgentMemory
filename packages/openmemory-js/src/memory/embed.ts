@@ -76,24 +76,34 @@ const fuse_vecs = (syn: number[], sem: number[]): number[] => {
     return f;
 };
 
-export async function embedForSector(t: string, s: string): Promise<number[]> {
+/**
+ * `shared` lets several sectors reuse one provider call for the same text when the
+ * provider's vector depends only on the text and the model (see sector_free_key).
+ */
+export async function embedForSector(
+    t: string,
+    s: string,
+    shared?: Map<string, Promise<number[]>>,
+): Promise<number[]> {
     console.error(`[EMBED] Provider: ${env.emb_kind}, Tier: ${tier}, Sector: ${s}`);
     if (!sector_configs[s]) throw new Error(`Unknown sector: ${s}`);
     if (tier === "hybrid") return gen_syn_emb(t, s);
     if (tier === "smart" && env.emb_kind !== "synthetic") {
         const syn = gen_syn_emb(t, s),
-            sem = await get_sem_emb(t, s),
+            sem = await get_sem_emb(t, s, shared),
             comp = compress_vec(sem, 128);
         return fuse_vecs(syn, comp);
     }
     if (tier === "fast") return gen_syn_emb(t, s);
-    return await get_sem_emb(t, s);
+    return await get_sem_emb(t, s, shared);
 }
 
 /**
- * Batch embed query text for ALL sectors in one API call.
- * This significantly improves query performance by reducing 5 sequential
- * API calls to a single batched call (~4.5x faster for deep tier).
+ * Embed query text for ALL sectors.
+ * Gemini gets one batched call (its task type differs per sector). For openai, ollama
+ * and aws the vector depends only on the text and the model, so sectors that share a
+ * model share one call: 1 call instead of 5 when OM_OPENAI_MODEL is set, 2 with the
+ * default models (reflective uses text-embedding-3-large).
  */
 export async function embedQueryForAllSectors(
     query: string,
@@ -118,17 +128,39 @@ export async function embedQueryForAllSectors(
     }
 
 
+    const shared = new Map<string, Promise<number[]>>();
     const result: Record<string, number[]> = {};
-    for (const s of sectors) result[s] = await embedForSector(query, s);
+    for (const s of sectors) result[s] = await embedForSector(query, s, shared);
     return result;
 }
 
+// Key for providers whose vector depends only on the text and the model, not the sector.
+// null for providers that vary by sector (gemini task type, local and synthetic hashes).
+const sector_free_key = (provider: string, s: string): string | null => {
+    switch (provider) {
+        case "openai":
+            return `openai:${env.openai_model || get_model(s, "openai")}`;
+        case "ollama":
+            return `ollama:${get_model(s, "ollama")}`;
+        case "aws":
+            return `aws:${get_model(s, "aws")}`;
+        default:
+            return null;
+    }
+};
 
 async function embed_with_provider(
     provider: string,
     t: string,
     s: string,
+    shared?: Map<string, Promise<number[]>>,
 ): Promise<number[]> {
+    const key = shared && sector_free_key(provider, s);
+    if (shared && key) {
+        // A failed call is shared too, so the other sectors fall back without retrying it.
+        if (!shared.has(key)) shared.set(key, embed_with_provider(provider, t, s));
+        return [...(await shared.get(key)!)];
+    }
     switch (provider) {
         case "openai":
             return await emb_openai(t, s);
@@ -148,14 +180,18 @@ async function embed_with_provider(
 }
 
 
-async function get_sem_emb(t: string, s: string): Promise<number[]> {
+async function get_sem_emb(
+    t: string,
+    s: string,
+    shared?: Map<string, Promise<number[]>>,
+): Promise<number[]> {
 
     const providers = [...new Set([env.emb_kind, ...env.embedding_fallback])];
 
     for (let i = 0; i < providers.length; i++) {
         const provider = providers[i];
         try {
-            const result = await embed_with_provider(provider, t, s);
+            const result = await embed_with_provider(provider, t, s, shared);
             if (i > 0) {
                 console.error(
                     `[EMBED] Fallback to ${provider} succeeded for sector: ${s}`,

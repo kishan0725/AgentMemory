@@ -62,6 +62,7 @@ let transaction: {
 let q: q_type;
 let vector_store: VectorStore;
 let memories_table: string;
+let waypoints_table: string;
 
 const is_pg = env.metadata_backend === "postgres";
 
@@ -96,6 +97,7 @@ if (is_pg) {
     memories_table = m;
     const v = `"${sc}"."${process.env.OM_VECTOR_TABLE || "openmemory_vectors"}"`;
     const w = `"${sc}"."openmemory_waypoints"`;
+    waypoints_table = w;
     const l = `"${sc}"."openmemory_embed_logs"`;
     const f = `"${sc}"."openmemory_memories_fts"`;
     const exec = async (sql: string, p: any[] = []) => {
@@ -503,6 +505,7 @@ if (is_pg) {
         );
     });
     memories_table = "memories";
+    waypoints_table = "waypoints";
     const exec = (sql: string, p: any[] = []) =>
         new Promise<void>((ok, no) =>
             db.run(sql, p, (err) => (err ? no(err) : ok())),
@@ -813,4 +816,4 @@ export const log_maint_op = async (
     }
 };
 
-export { q, transaction, all_async, get_async, run_async, memories_table, vector_store };
+export { q, transaction, all_async, get_async, run_async, memories_table, waypoints_table, vector_store };

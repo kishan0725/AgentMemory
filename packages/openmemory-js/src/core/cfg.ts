@@ -65,6 +65,10 @@ export const env = {
         process.env.LOCAL_MODEL_PATH || process.env.OM_LOCAL_MODEL_PATH || "",
     vec_dim: num(process.env.OM_VEC_DIM, tier_dims[tier]),
     min_score: num(process.env.OM_MIN_SCORE, 0.3),
+    // "hybrid" (default) blends vector similarity with token overlap, tags, waypoints and recency,
+    // then standardises the scores. "similarity" ranks by vector similarity alone, skips waypoint
+    // expansion and returns the similarity as the score, so results don't drift with access history.
+    search_scoring: str(process.env.OM_SEARCH_SCORING, "hybrid").toLowerCase(),
     decay_lambda: num(process.env.OM_DECAY_LAMBDA, 0.02),
     decay_interval_minutes: num(process.env.OM_DECAY_INTERVAL_MINUTES, 1440),
     max_payload_size: num(process.env.OM_MAX_PAYLOAD_SIZE, 1_000_000),

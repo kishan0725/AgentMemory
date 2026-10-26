@@ -795,6 +795,7 @@ export async function hsg_query(
         }
         if (!ss.length) ss.push("semantic");
 
+        const similarity_only = env.search_scoring === "similarity";
         const qe = await embedQueryForAllSectors(qt, ss);
         const w: multi_vec_fusion_weights = {
             semantic_dimension_weight: qc.primary === "semantic" ? 1.2 : 0.8,
@@ -825,7 +826,7 @@ export async function hsg_query(
         const high_conf = avg_top >= 0.55;
         const ids = new Set<string>();
         for (const r of Object.values(sr)) for (const x of r) ids.add(x.id);
-        const exp = high_conf
+        const exp = high_conf || similarity_only
             ? []
             : await expand_via_waypoints(Array.from(ids), k * 2);
         for (const e of exp) ids.add(e.id);
@@ -900,14 +901,16 @@ export async function hsg_query(
                 tier === "hybrid"
                     ? (keyword_scores.get(mid) || 0) * env.keyword_boost
                     : 0;
-            const fs = compute_hybrid_score(
-                adjusted_sim,
-                tok_ov,
-                ww,
-                rec_sc,
-                keyword_boost,
-                tag_match,
-            );
+            const fs = similarity_only
+                ? Math.max(0, ...Object.values(sr).map((rr) => rr.find((r) => r.id === mid)?.similarity ?? 0))
+                : compute_hybrid_score(
+                    adjusted_sim,
+                    tok_ov,
+                    ww,
+                    rec_sc,
+                    keyword_boost,
+                    tag_match,
+                );
             const msec = await vector_store.getVectorsById(mid);
             const sl = msec.map((v) => v.sector);
             res.push({
@@ -927,7 +930,7 @@ export async function hsg_query(
         }
         res.sort((a, b) => b.score - a.score);
         const top_cands = res.slice(0, eff_k);
-        if (top_cands.length > 0) {
+        if (top_cands.length > 0 && !similarity_only) {
             const scores = top_cands.map((r) => r.score);
             const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
             const variance =

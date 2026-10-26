@@ -1,4 +1,4 @@
-import { all_async, run_async, get_async, q, memories_table } from "../core/db";
+import { all_async, run_async, get_async, q, memories_table, waypoints_table } from "../core/db";
 import { now } from "../utils";
 import { cosineSimilarity } from "../memory/embed";
 
@@ -117,7 +117,7 @@ export async function propagateAssociativeReinforcementToLinkedNodes(
     const ups: Array<{ node_id: string; new_salience: number }> = [];
     for (const wp of wps) {
         const ld = (await get_async(
-            "select salience from memories where id=?",
+            `select salience from ${memories_table} where id=?`,
             [wp.target_id],
         )) as any;
         if (ld) {
@@ -152,7 +152,7 @@ export async function determineEnergyBasedRetrievalThreshold(
 
 export async function applyDualPhaseDecayToAllMemories(): Promise<void> {
     const mems = await all_async(
-        "select id,salience,decay_lambda,last_seen_at,updated_at,created_at from memories",
+        `select id,salience,decay_lambda,last_seen_at,updated_at,created_at from ${memories_table}`,
     );
     const ts = now();
     const ops = mems.map(async (m: any) => {
@@ -174,7 +174,7 @@ export async function buildAssociativeWaypointGraphFromMemories(): Promise<
 > {
     const gr = new Map<string, AssociativeWaypointGraphNode>();
     const wps = (await all_async(
-        "select src_id,dst_id,weight,created_at from waypoints",
+        `select src_id,dst_id,weight,created_at from ${waypoints_table}`,
     )) as any[];
     const ids = new Set<string>();
     for (const wp of wps) {
@@ -237,7 +237,7 @@ export async function retrieveMemoriesWithEnergyThresholding(
     me: number,
 ): Promise<any[]> {
     const mems = (await all_async(
-        "select id,content,primary_sector,salience,mean_vec from memories where salience>0.01",
+        `select id,content,primary_sector,salience,mean_vec from ${memories_table} where salience>0.01`,
     )) as any[];
     const sc = new Map<string, number>();
     for (const m of mems) {
