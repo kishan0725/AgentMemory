@@ -7,6 +7,7 @@ import { VectorStore } from "./vector_store";
 import { PostgresVectorStore } from "./vector/postgres";
 import { PgVectorStore } from "./vector/pgvector";
 import { ValkeyVectorStore } from "./vector/valkey";
+import { build_pg_ssl, pg_password } from "./pg_credentials";
 
 type q_type = {
     ins_mem: { run: (...p: any[]) => Promise<void> };
@@ -74,12 +75,7 @@ function convertPlaceholders(sql: string): string {
 }
 
 if (is_pg) {
-    const ssl =
-        process.env.OM_PG_SSL === "require"
-            ? { rejectUnauthorized: false }
-            : process.env.OM_PG_SSL === "disable"
-                ? false
-                : undefined;
+    const ssl = build_pg_ssl(process.env);
     const db_name = process.env.OM_PG_DB || "openmemory";
     const pool = (db: string) =>
         new Pool({
@@ -87,10 +83,12 @@ if (is_pg) {
             port: process.env.OM_PG_PORT ? +process.env.OM_PG_PORT : undefined,
             database: db,
             user: process.env.OM_PG_USER,
-            password: process.env.OM_PG_PASSWORD,
+            password: pg_password,
             ssl,
         });
     let pg = pool(db_name);
+    // A dropped idle connection must not crash the host with an unhandled error event.
+    pg.on("error", (err) => console.error("[DB] idle client error:", err.message));
     let cli: PoolClient | null = null;
     const sc = process.env.OM_PG_SCHEMA || "public";
     const m = `"${sc}"."${process.env.OM_PG_TABLE || "openmemory_memories"}"`;

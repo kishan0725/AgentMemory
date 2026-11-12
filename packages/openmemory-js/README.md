@@ -135,11 +135,17 @@ OM_PG_PORT=5432
 OM_PG_DB=openmemory
 OM_PG_USER=postgres
 OM_PG_PASSWORD=...
+OM_PG_SSL=require|verify|disable   # verify checks the server certificate
+OM_PG_SSL_CA=/path/ca.pem          # extra CA for verify (e.g. the RDS bundle)
 
 # vector backend (optional)
 OM_VECTOR_BACKEND=valkey             # default uses metadata backend
 OM_VALKEY_URL=redis://localhost:6379
 ```
+
+### short-lived postgres passwords
+
+`set_pg_password_provider(() => token)` supplies the password on every new connection (sync or async). Call it right after importing the package, before any `await`. Once a provider is set, `~/.pgpass` is not consulted.
 
 ### programmatic usage
 

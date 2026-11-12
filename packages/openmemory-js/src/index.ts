@@ -40,3 +40,6 @@ export { update_user_summary } from "./memory/user_summary";
 
 // Export core types
 export type { mem_row, sector_type } from "./core/types";
+
+// Postgres password provider (identity-based auth); call it before the first query.
+export { set_pg_password_provider } from "./core/pg_credentials";
