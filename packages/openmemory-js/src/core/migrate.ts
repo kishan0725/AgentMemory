@@ -1,6 +1,7 @@
 import { env } from "./cfg";
 import sqlite3 from "sqlite3";
 import { Pool, PoolClient } from "pg";
+import { build_pg_ssl, pg_password } from "./pg_credentials";
 
 const is_pg = env.metadata_backend === "postgres";
 const POSTGRES_SCHEMA_VERSION = "1.5.4";
@@ -324,19 +325,14 @@ export async function run_migrations() {
 
     if (is_pg) {
         log("Using Postgres metadata backend");
-        const ssl =
-            process.env.OM_PG_SSL === "require"
-                ? { rejectUnauthorized: false }
-                : process.env.OM_PG_SSL === "disable"
-                  ? false
-                  : undefined;
+        const ssl = build_pg_ssl(process.env);
 
         const pool = new Pool({
             host: process.env.OM_PG_HOST,
             port: process.env.OM_PG_PORT ? +process.env.OM_PG_PORT : undefined,
             database: process.env.OM_PG_DB || "openmemory",
             user: process.env.OM_PG_USER,
-            password: process.env.OM_PG_PASSWORD,
+            password: pg_password,
             ssl,
         });
 
